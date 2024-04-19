@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<script src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+
+	<script>
+	require([
+		"aps/load",
+		"aps/ResourceStore",
+		"dojo/when",
+		"dijit/registry",
+		"dojox/mvc/getStateful",
+		"dojox/mvc/getPlainValue",
+		"dojox/mvc/at",
+		"aps/Message",
+		"dojo/_base/lang",
+		"dojo/text!./newflavor.json",
+		"aps/ready!"
+		], function (load, Store, when, registry, getStateful, getPlainValue, at, Message, lang, newflavor) {
+			
+			var store = new Store({ target: "/aps/2/resources" });
+			//console.log(aps.context.vars.tenant.aps.id);
+			var model = getStateful(lang.mixin(window.model, getStateful(JSON.parse(newflavor))));
+			
+			//load the page and widgets and stuff
+			load(["aps/PageContainer", { id: "pageContainer" },[
+				["aps/Container", {cols:0, title:"Create New Flavor"},[
+					["aps/FieldSet",[
+					
+					["aps/TextBox", {
+						required: true,
+						label: "Flavor Name",
+						value: at(model, "flavorName")
+					}],
+					["aps/Slider", {
+						required:		true,
+						label:			"Number of CPUs",
+						minimum:		1,
+						maximum:		10,
+						step:			1,
+						value:			at(model, "cpus")
+			        }],
+			        ["aps/Slider", {
+						required:		true,
+						label:			"Ram(MB)",
+						minimum:		1024,
+						maximum:		10240,
+						step:			512,
+						value:			at(model, "ram")
+			        }],
+			        ["aps/Slider", {
+						required:		true,
+						label:			"Root Disk(GB)",
+						minimum:		1,
+						maximum:		1000,
+						step:			1,
+						value:			at(model, "rootdisk")
+			        }],
+			        ["aps/Slider", {
+						label:			"Swap Disk(MB)",
+						minimum:		0,
+						maximum:		1024,
+						step:			1,
+						value:			at(model, "swapdisk")
+			        }],
+			        ["aps/Slider", {
+						label:			"Ephemeral Disk(GB)",
+						minimum:		0,
+						maximum:		1024,
+						step:			1,
+						value:			at(model, "ephemeraldisk")
+			        }]
+				]]
+				]]
+			]]
+			).then(function(){
+
+				aps.app.onSubmit = function() {
+				var page = registry.byId("pageContainer"),
+				messages = page.get("messageList");
+
+				if (!page.validate()) {
+					//console.log("Canceled - Not Validated");
+
+					aps.apsc.cancelProcessing();
+					return;
+				}
+				else {
+					var flav = getPlainValue(model);
+					flav.heliontenant.aps.id = aps.context.vars.tenant.aps.id;
+					when(
+						store.put(flav),
+						function() {
+							aps.apsc.gotoView("flavor");
+						},
+						function(err) {
+							aps.apsc.cancelProcessing();
+							messages.removeAll();
+							messages.addChild(new Message({description: err, type: "error"}));
+						}
+					);
+				}
+			};
+
+			aps.app.onCancel = function() {
+				aps.apsc.gotoView("flavor");
+			};
+		});
+	});
+</script>
+</head>
+<body>
+</body>
+</html>

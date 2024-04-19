@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+<script>
+	require([
+		"aps/xhr",
+		"dojo/promise/all",
+		"aps/load",
+		"aps/Memory",
+		"aps/ResourceStore",
+		"dojo/when",
+		"dijit/registry",
+		"aps/parser",
+		"dojox/mvc/getStateful",
+		"dojox/mvc/getPlainValue",
+		"aps/Message",
+		"dojo/_base/lang",
+		"dojox/mvc/at",
+		"dojo/text!./newcontainer.json",
+		"aps/ready!"
+	], function (xhr, all, load, Memory, Store, when, registry, parser, getStateful, getPlainValue, Message, lang, at, newcontainer) {
+				
+		//define current selected project
+		var currproj = "";
+		var currreadacl = "";
+		var currwriteacl = "";
+		
+		//TODO: Does user has access to resources from user control panel?
+		//var store = new Store({ target: "/aps/2/resources" });
+		//console.log(aps.context.vars.tenant.aps.id);
+		window.model = getStateful(lang.mixin(window.model, getStateful(JSON.parse(newcontainer))));
+		
+		//define the store to get the list of projects associated with the user
+		var projs  = new Store({
+			target:	"/aps/2/resources/" + aps.context.vars.enduser.aps.id + "/getProjects",
+			idProperty: "aps.id"
+			});
+		var proja = [];
+		//drop in an empty value
+		proja.push({"aps":{"id":""}, "projectName":""});
+
+		//define object to hold the projs
+		var projectList = new Memory({data: [{"aps":{"id":""},"projectName":""}], idProperty: "aps.id" });
+
+		
+		//query the projects and push each into the array
+		projs.query().forEach( function(data){
+			//finish loading the array
+			projectList.add({aps:{id:data.aps.id},projectName:data.projectName});
+			
+		}).then(function(){
+			
+			//load the page and widgets and stuff
+			load(["aps/PageContainer", { id: "pageMain" },[
+					["aps/Container", {cols:0, title:"Create New Container"},[
+						["aps/FieldSet",[
+							["aps/TextBox", {
+								required: true,
+								label: "Container Name",
+								id: "containername",
+								value: window.model.containername
+							}]
+							,
+							["aps/Select", {
+								label:"Select Project",
+								required: true,
+		                        store: projectList,
+								labelAttr: "projectName",
+								id: "selProj"
+							}],
+							["aps/Select", {
+								label:"Read Access Level",
+								required: true,
+		                        //store: aclList,
+		                        options: [ { label: "1", value: "1" },
+						                   { label: "2", value: "2" },
+						                   { label: "3", value: "3" }],
+								labelAttr: "containerreadacl",
+								id: "selReadACL"
+							}],
+							["aps/Select", {
+								label:"Write Access Level",
+								required: true,
+		                        //store: aclList,
+		                        options: [ { label: "1", value: "1" },
+						                   { label: "2", value: "2" },
+						                   { label: "3", value: "3" }],
+								labelAttr: "containerwriteacl",
+								id: "selWriteACL"
+							}],
+							["aps/TextBox", {
+								required: false,
+								label: "MetaData1",
+								id: "containermetadataone",
+								value: window.model.containermetadataone
+							}]
+							,
+							["aps/TextBox", {
+								required: false,
+								label: "MetaData2",
+								id: "containermetadatatwo",
+								value: window.model.containermetadatatwo
+							}]
+							,
+							["aps/TextBox", {
+								required: false,
+								label: "MetaData3",
+								id: "containermetadatathree",
+								value: window.model.containermetadatathree
+							}]
+						]]//end fieldset
+					]]//end container
+				]]//end page container
+			).then(function(){
+
+			//register listener for project selection field changes
+			registry.byId("selProj").on("change", function() {
+				var e = registry.byId("selProj");
+				currproj = e.value;
+				console.log("Selected Project:: " + e.value);
+			});
+			
+			//register listener for "Read Access Level" selection field changes
+			registry.byId("selReadACL").on("change", function() {
+				
+				var e = registry.byId("selReadACL");
+				currreadacl = e.checked;
+				console.log("Selected READ ACL:: " + e.value);
+			});
+				
+			//register listener for Write Access Level selection field changes
+			registry.byId("selWriteACL").on("change", function() {
+				var e = registry.byId("selWriteACL");
+				currreadacl = e.checked;
+				console.log("Selected WRITE ACL:: " + e.value);
+			});
+				
+			aps.app.onSubmit = function() {
+				console.log("Submit - request");
+				var page = registry.byId("pageMain");
+				//messages = page.get("messageList");
+
+				if (!page.validate()) {
+					console.log("Canceled - Not Validated");
+
+					aps.apsc.cancelProcessing();
+					return;
+				}
+				else {
+					console.log("Submit - Validated");
+					var er = ""; //tmp error message
+					
+					window.model.containername = registry.byId("containername").value;
+					window.model.containermetadataone = registry.byId("containermetadataone").value;
+					window.model.containermetadatatwo = registry.byId("containermetadatatwo").value;
+					window.model.containermetadatathree = registry.byId("containermetadatathree").value;
+					
+					currreadacl = registry.byId("selReadACL").value;
+					currwriteacl = registry.byId("selWriteACL").value;
+					
+					// validate the project selection
+					 if(currproj === ""){
+						er = "Please select a project!";
+					}else{
+						//add it to the model
+						window.model.helionproject.aps.id = currproj;
+					}
+					
+					// validate the project selection
+					if(currreadacl === ""){
+						er = "Please select Read Access Level!";
+					}else{
+						//add it to the model
+						window.model.containerreadacl = currreadacl;
+					}
+					
+					// validate the project selection
+					if(currwriteacl === ""){
+						er = "Please select a project!";
+					}else{
+						//add it to the model
+						window.model.containerwriteacl = currwriteacl;
+					}
+					
+					//to-do ... add error handling
+					var url1 = "/aps/2/resources/" + aps.context.vars.enduser.aps.id+ "/createContainer";
+					xhr(url1, {	method: "POST",
+						data: JSON.stringify(getPlainValue(window.model))
+					}).then(function(){
+						aps.apsc.gotoView("storages");
+					});
+					//);
+					}//end else
+				}; //end onsubmit
+
+				aps.app.onCancel = function() {
+					aps.apsc.gotoView("storages");
+				};
+			});
+		});
+	});
+</script>
+</head>
+<body>
+</body>
+</html>

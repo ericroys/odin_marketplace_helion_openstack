@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script type="text/javascript" src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+<script>
+	require([
+		"aps/ResourceStore",
+		"dojo/when",
+		"dijit/registry",
+		"aps/load",
+		"aps/Message",
+		"aps/Memory",
+		"aps/ready!"
+		], function (Store, when, registry, load, Message, Memory) {
+
+			var storeImages = new Store({
+				target : "/aps/2/resources/" + aps.context.vars.enduser.aps.id + "/getListImagesByProject"
+			});
+
+			//vars for the population of the memory store where the images will be placed/read
+			var images = [];
+			
+			when(storeImages.query(), function(object){
+				
+				//convert string to applicable json and feed into the array
+				/** image stuff **/
+				var tmp = JSON.parse(JSON.parse(String(object)));
+				if(tmp.image !== undefined){
+					//drop empty name at beginning so sel so displays no selection initially
+					tmp.image.unshift({"name":""});
+					images=tmp.image;
+				}
+				var imageList = new Memory({data: images, idProperty: "name"});
+				/**  image stuff end **/
+				
+				//load the page
+				load(["aps/PageContainer", { id: "page" },
+						[["aps/Grid",{
+							id:"gridImages",
+							store:  imageList,
+							columns: [
+			
+								{ field: "projectName", name: "Project" },
+								{ field: "name", name: "Image/Snapshot" }
+							]}
+				]]]);
+			});
+		});
+
+</script>
+</head>
+<body>
+</body>
+</html>

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<script src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+	<script>
+	require([
+		    "aps/load",
+	"aps/ResourceStore",
+	"dojo/when",
+	"dijit/registry",
+	"dojox/mvc/getStateful",
+	"dojox/mvc/getPlainValue",
+	"aps/Message",
+	"dojo/_base/lang",
+	"dojox/mvc/at",
+	"dojo/text!./newpolicy.json",
+	"aps/Memory",
+	"aps/ready!"
+	],
+	function (load, Store, when, registry, getStateful, getPlainValue, Message, lang, at, newpolicy, Memory) {
+			
+		var store = new Store({ target: "/aps/2/resources" });
+		//console.log(aps.context.vars.tenant.aps.id);
+		window.model = getStateful(lang.mixin(window.model, getStateful(JSON.parse(newpolicy))));
+			
+		//define the store to get the list of projects associated with the user
+		var projs  = new Store({
+			target:	"/aps/2/resources/" + aps.context.vars.tenant.aps.id + "/projects",
+			idProperty: "aps.id"
+		});
+			
+		var currproj = ""; //currently selected project
+			
+		//define object to hold the projs
+		var projectList = new Memory({data: [], idProperty: "aps.id" });
+		projectList.add({aps:{id:""}, projectName:""});
+
+		//query the projects and push each into the array
+		projs.query().forEach( function(data){
+			//finish loading the array
+			projectList.add({aps:{id:data.aps.id},projectName:data.projectName});
+			
+		}).then(function(){
+			//load the page and widgets and stuff
+			load(["aps/PageContainer", { id: "pageContainer" },[
+					["aps/Container", {cols:0, title:"Create New Policy Group"},[
+						["aps/FieldSet",[
+						["aps/Select", {
+							label:"Select Project",
+							required: true,
+							store: projectList,
+							labelAttr: "projectName",
+							id: "selProj"
+						}],
+						["aps/TextBox", {
+							required: true,
+							label: "Policy Name",
+							id: "txtName",
+							value: window.model.policyName
+						}],
+						["aps/TextBox", {
+							required: true,
+							label: "Description",
+							id: "txtDescription",
+							value: window.model.policyDescription
+						}]
+					]]
+					]]
+				]]
+				).then(function(){
+			
+				
+				
+			
+			aps.app.onSubmit = function() {
+				console.log("Submit - request");
+
+				var page = registry.byId("pageContainer"),
+				messages = page.get("messageList");
+
+				if (!page.validate()) {
+					console.log("Canceled - Not Validated");
+
+					aps.apsc.cancelProcessing();
+					return;
+				}
+				else {
+					console.log("Submit - Validated");
+					
+					window.model.policyName = registry.byId("txtName").value;
+					window.model.policyDescription = registry.byId("txtDescription").value;
+					
+					var er = ""; //tmp error message
+					
+					// validate the project selection
+					if(currproj === ""){
+						er = "Please select a project!";
+					}else{
+						//add it to the model
+						window.model.project.aps.id = currproj;
+					}
+					
+					//display error and cancel
+					if(er !== ""){
+						aps.apsc.cancelProcessing();
+						messages.addChild(new Message({description:er, type:"error"}));
+						return;
+					}
+					console.log("Name: " + window.model.policyName + "  Description: " + window.model.policyDescription);
+					
+					when(
+						
+						store.put(getPlainValue(window.model)),
+						function() {
+							aps.apsc.gotoView("securities");
+						},
+						function(err) {
+							aps.apsc.cancelProcessing();
+							messages.removeAll();
+							messages.addChild(new Message({description: err, type: "error"}));
+						}
+					);
+				}
+			};
+
+			aps.app.onCancel = function() {
+				aps.apsc.gotoView("securities");
+			};
+			
+			//register listener for project selection field changes
+			registry.byId("selProj").on("change", function() {
+				var e = registry.byId("selProj");
+				currproj = e.value;
+				//console.log("Selected Project:: " + e.value);
+			});
+		});
+	});
+});
+</script>
+</head>
+<body>
+</body>
+</html>

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<script src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+	<script>	
+	require([
+		"aps/Memory",
+		"dojo/when",
+		"dojo/promise/all",
+		"aps/ResourceStore",
+		"dijit/registry",
+		"aps/PageContainer",
+		"dojox/mvc/getStateful",
+		"aps/load",
+		"aps/Select",
+		"aps/Grid",
+		"dojox/mvc/getPlainValue",
+		"aps/Message",
+		"aps/ready!"
+		], function (Memory, when, all, Store, registry, PageContainer, getStateful, load, Select, Grid, getPlainValue, Message) {
+		
+		//var pmodel = {};
+		
+		var projCount = 0;
+		var projStore = new Store({
+			apsType:    "http://hp.com/project/3.0",
+			target:     "/aps/2/resources"
+		});
+		when(projStore.query(), function(projs) {
+			//console.log("projects length"+projs.length);
+			projCount = projs.length;
+		});
+		
+		//variable for current selected menu item (aps id of the user)
+		var curPolicy = "";
+		
+		 //vars for the second table store. They are populated under condition of selection of the first table
+		var pRules = [];
+		var pRulesList = new Memory({data:pRules,idProperty:"id"});
+		
+		//Store for security policies
+		var storePolicies = new Store({
+			apsType:    "http://hp.com/helionsecuritygroup/1.0",
+			target:     "/aps/2/resources"
+		});
+		
+		when(storePolicies.query(), function(){
+			
+			load(["aps/PageContainer", { id: "page" },
+				[["aps/Grid",{
+					selectionMode: 'single',
+					id:"gridPolicies",
+					store:  storePolicies,
+					columns: [
+						{ field: "policyName", name: "Policy Name" },
+						{ field: "policyDescription", name: "Description" }
+					]
+				},[
+				["aps/Toolbar", [
+					["aps/Container",{cols:2},[
+						["aps/Container",{title:"General"},[
+							["aps/ToolbarButton", { id: "createPolicy", iconName: "./images/add.png", label: _('Create Policy') }],
+							["aps/ToolbarButton", { id: "deletePolicy", iconName: "./images/delete.png", label: _('Delete Policy'), requireItems: true }],
+							["aps/ToolbarButton", { id: "addRule", iconName:"./images/add.png", label: _('Add Rule'), requireItems: true }]
+						]]
+						]]
+						]]
+					]], //end of grid one
+					["aps/Container",{
+						id:"assoc",
+						title:"Rules Associated with Selected Policy"},[
+							["aps/Grid",{
+								selectionMode: 'multiple',
+								id:"gridRules",
+								store:  pRulesList,
+								columns: [
+									{ field: "direction", name: "Direction" },
+									{ field: "etherType", name: "Ethernet Type" },
+									{ field: "ipProtocol", name: "Protocol" },
+									{ field: "fromPort", name: "Port Start"},
+									{ field: "toPort", name: "Port End"}
+								]},[
+						["aps/Toolbar", [
+							["aps/Container",{cols:2},[
+								["aps/Container",{title:"General"},[
+									["aps/ToolbarButton", {
+										id: "deleteRule",
+										iconName: "./images/delete.png",
+										label: _('Delete Rule'),
+										requireItems: true
+									}]
+								]]
+							]]
+						]]
+					]
+				]]
+			]// end of second grid
+			]]).then (function(){
+				var gridPolicies = registry.byId("gridPolicies"),
+				gridRules = registry.byId("gridRules"),
+				page = registry.byId("page"),
+				messages = page.get("messageList");
+
+				//Action behind Create Policy button
+				registry.byId("createPolicy").on("click", function(){
+					aps.apsc.gotoView("policy.new");
+				});
+				//End Create Policy
+
+				//Action behind Delete Policy button
+				registry.byId("deletePolicy").on("click", function() {
+					var sel = gridPolicies.get("selectionArray"),
+					count = 0,
+					self = this;
+					var store4 = new Store({
+						apsType:	"http://hp.com/helionsecuritygroup/1.0",
+						target:	"/aps/2/resources/",
+						idProperty: "aps.id"
+					});
+					//console.log("Selection length:"+sel.length);
+					when(store4.remove(sel), function() {
+						gridPolicies.refresh();
+						self.cancel();
+					}, function(err){
+						messages.removeAll();
+						messages.addChild(new Message({ description: err, type: "error" }));
+						if(++count >= sel.length){
+							gridPolicies.refresh();
+							self.cancel();
+							}
+						});
+					});
+					//End Delete Policy
+
+					//Action behing Add Rule button
+					registry.byId("addRule").on("click", function(){
+						if(projCount===0){
+							messages.removeAll();
+							messages.addChild(new Message({description: _("There are no projects, create user project from Projects tab"), type:"warning"}));
+						}else{
+							aps.apsc.gotoView("securityrule.new1");
+						}
+					});
+					//End Add Rule button logic
+					
+					//Action behing Delete Rule button
+					registry.byId("deleteRule").on("click", function(){
+						var count = 0,
+						self = this,
+						selRules = gridRules.get("selectionArray");
+						messages.removeAll();
+						if(curPolicy !== "" ){
+							var rulesList = new Store({
+								target:	"/aps/2/resources/" + curPolicy + "/groupRules"
+							});
+							
+							for(var i=0; i<selRules.length; i++){
+								when(rulesList.remove(selRules[i]), function() {
+									while (pRules.length) { pRules.pop(); }
+									var rulesList1 = new Store({
+										target:	"/aps/2/resources/" + curPolicy + "/groupRules"
+									});
+									rulesList1.query().forEach( function(data){
+										pRules.push({id:data.aps.id,helionusername:data.helionusername});
+										//console.log("id: " + data.aps.id + " :: User-> " + data.helionusername);
+										gridRules.refresh();
+										self.cancel();
+									});
+									
+									gridRules.refresh();
+									self.cancel();
+								}, function(err){
+									messages.removeAll();
+									messages.addChild(new Message({ description: err, type: "error" }));
+									if(++count >= selRules.length){
+										gridPolicies.refresh();
+										self.cancel();
+									}
+								});
+							}
+						}else{
+							//console.log("Both Project and User should be selected to delte a user from a Project.");
+						}
+						return;
+					});
+					//End Delete Rule button logic
+					
+					//Start:Policy Selection Event
+					//handle user selection of the first grid's table row so we can populate the
+					//second table appropriately
+					gridPolicies.get("selectionArray").watchElements(function(){
+						curPolicy = this;
+						if(curPolicy!==""){
+							//console.log("Grid changed to: " + this);
+							//store to query policy for the associated rules
+							var rulesList = new Store({
+								target:	"/aps/2/resources/" + curPolicy + "/groupRules"
+							});
+							
+							//clear the project users array prior to load/re-load
+							while (pRules.length) { pRules.pop(); }
+							gridRules.refresh();
+							
+							//get the list of rules for the selected policy and re-pop the array
+							rulesList.query().forEach( function(data){
+								pRules.push({id:data.aps.id,ipProtocol:data.ipProtocol, fromPort:data.fromPort, toPort:data.toPort, direction:data.direction, etherType:data.etherType});
+								//console.log("id: " + data.aps.id + " :: User-> " + data.helionusername);
+								gridRules.refresh();
+							});
+						}//endif
+					});
+					//End: Policy Selection Event
+				});
+			});
+		});
+</script>
+</head>
+<body>
+</body>
+</html>

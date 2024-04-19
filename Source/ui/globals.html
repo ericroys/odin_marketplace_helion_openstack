@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+<!-- Using the APS JS UI SDK -->
+<script src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+<script>
+// Global Settings Provider Screen 1
+require([
+	"aps/ResourceStore",
+	"dojo/when",
+	"aps/load",
+	"dojox/mvc/getStateful",
+	"dojox/mvc/getPlainValue",
+	"dojox/mvc/at",
+	"aps/ready!"
+],function (Store, when, load, getStateful, getPlainValue, at) {
+	// Define Data Store
+	var store = new Store({ target: "/aps/2/resources/" });
+	// Globals for Instance Created
+	when(store.get(aps.context.vars.globals.aps.id), function(modelSaved) {
+		var model = getStateful(modelSaved);
+		load(["aps/PageContainer", [
+			["<h3>", [
+				["aps/Output", { content: "HP Helion OpenStack Settings" }]
+			]],
+			["aps/Toolbar", [
+				["aps/ToolbarButton", { id: "edit", iconName: "./images/edit.gif", onClick: function(){ aps.apsc.gotoView("globals.edit"); }, label: _('Edit') }]
+			]],
+			["aps/FieldSet", { title: _('Helion Settings') }, [
+				["aps/Output", { title:_('Helion Instance Description'), value: at(model, 'HELIONDESC') }],
+				["aps/Output", { title: _('Helion EndPoint Server'), value: at(model, 'HELIONIP') }],
+				["aps/Output", { title: _('Helion Admin User'), value: at(model, 'HELIONUSER') }],
+				["aps/Output", { title: _('Helion Password'), value: "***********" }],
+				["aps/Output", { title: _('Helion Protocol'), value: at(model, 'helionProtocol') }],
+				//["aps/CheckBox", { title: _('Show Only OSA Provisioned Networks'), checked: at(model, 'showOsNetworks'), value: at(model, 'showOsNetworks'), disabled: true }],
+				["aps/CheckBox", { title:_('Use LDAP'), checked: at(model, 'ldapEnabled'), value: at(model, 'ldapEnabled'), disabled: true }],
+				["aps/Output", { title:_('LDAP IP Address'), value: at(model, 'LDAPIP') }],
+				["aps/Output", { title: _('LDAP Client User'), value: at(model, 'LDAPUSER') }],
+				["aps/Output", { title: _('LDAP Password'), value: "***********" }],
+				["aps/Output", { title: _('LDAP Domain Component 1'), value: at(model, 'DC1') }],
+				["aps/Output", { title: _('LDAP Domain Component 2'), value: at(model, 'DC2') }]
+			]]
+		]]);
+	});
+});
+</script>
+</head>
+<body>
+</body>
+</html>

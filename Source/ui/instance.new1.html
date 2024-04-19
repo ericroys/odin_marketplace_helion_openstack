@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<script src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+	<script>
+	require([
+		"aps/xhr",
+		"dojo/promise/all",
+		"aps/load",
+		"aps/Memory",
+		"aps/ResourceStore",
+		"dojo/when",
+		"dijit/registry",
+		"aps/parser",
+		"dojox/mvc/getStateful",
+		"dojox/mvc/getPlainValue",
+		"aps/Message",
+		"dojo/_base/lang",
+		"dojox/mvc/at",
+		"dojo/text!./newinstance.json",
+		"aps/ready!"
+	],
+	function (xhr, all, load, Memory, Store, when, registry, parser, getStateful, getPlainValue, Message, lang, at, newinstance) {
+
+		//var store = new Store({ target: "/aps/2/resources" });
+		window.model = getStateful(lang.mixin(window.model, getStateful(JSON.parse(newinstance))));
+			
+		//keep track of selected project
+		var curproj = "";
+		//keep track of selected flavor
+		var curFlavName = "";
+		//keep track of selected image
+		var curimg = "";
+
+		//define the store to get the list of projects associated with the user
+		var projs  = new Store({
+			target:	"/aps/2/resources/" + aps.context.vars.enduser.aps.id + "/getProjects",
+			idProperty: "aps.id"
+		});
+			
+		//define the image store to query
+		var imgstore  = new Store({
+			target:	"/aps/2/resources/" + aps.context.vars.enduser.aps.id + "/getImages",
+			idProperty: "aps.id"
+		});
+
+		//var for the population of the memory store where the images will be placed/read
+		var images = [];
+		//var for the population of the memory store where the projects will be placed/read
+		var projects = [];
+		//var for the population of the memory store where the networks will be placed/read
+		//var nets = [];
+		//var for the population of the memory store where the flavors will be placed/read
+		var flavors = [];
+		var flavorList = new Memory({data: flavors, idProperty: "flavorName"});
+		//var for the population of the memory store where the policies will be placed/read
+		var pols = [];
+		//var for the population of the memory store where the nets will be placed/read
+		var nets = [];
+		var netList = new Memory({data:nets, idProperty:"aps.id"});
+		//var for errors occurred during load
+		var loadError = "";
+		
+	when(all([projs.query(), imgstore.query()]), function(res){
+
+		/** project stuff **/
+		var ptmp = res[0];
+		if(ptmp != "undefined"){
+			ptmp.unshift({"aps":{"id":"none"},"projectName":""});
+			projects = ptmp;
+		}
+		//define memory store for projects
+		var projectList = new Memory({data: projects, idProperty: "aps.id" });
+		/** end project stuff **/
+		
+		/** image stuff **/
+		var tmp = JSON.parse(JSON.parse(String(res[1])));
+		if(tmp.image !== undefined){
+			//drop empty name at beginning so sel so displays no selection initially
+			tmp.image.unshift({"name":""});
+			images=tmp.image;
+		}
+		var imageList = new Memory({data: images, idProperty: "name"});
+		/**  image stuff end **/
+			
+		/** policy stuff start **/
+		var polList = new Memory({data:pols,idProperty:"policyName"});
+		/** policy stuff end **/
+
+		//load the page and widgets and stuff
+		load(["aps/PageContainer", { id: "pageMain" },[
+				["aps/Container", {cols:0, title:"Create New Virtual Instance"},[
+					["aps/FieldSet",[
+					["aps/TextBox", {
+						required: true,
+						label: "Instance Name",
+						id: "txtName",
+						value: at(window.model,"instancename")
+					}],
+					["aps/Select",{
+						id:"selProj",
+						required: true,
+						value:at(window.model.helionproject.aps.id, "aps.id"),
+						labelAttr:  "projectName",
+						store: projectList,
+						title: "Project: "
+					}],
+					["aps/Select",{
+						id:"selFlav",
+						required: true,
+						labelAttr:  "flavorName",
+						store: flavorList,
+						title: "Flavor: "
+					}],
+					["aps/Select",{
+						id:"selImage",
+						required: true,
+						value:at(window.model.image, "name"),
+						labelAttr: "name",
+						store: imageList,
+						title: "Image To Use: "
+					}]]],
+					["aps/Container",{id:"mulSelect",cols:2},[
+					["aps/Container",{id:"contPols", title: "Select one or more policies for the instance"},[
+						["aps/Grid",{
+							id: "gridPol",
+							selectionMode: 'multiple',
+							store: polList,
+							showPaging: false,
+							columns:[
+								{field:"policyName", name:"Policy"},
+								{field:"policyDescription", name:"Description"}]
+						}]
+					]],
+					["aps/Container",{id:"contNets", title: "Select one or more networks for the instance"},[
+						["aps/Grid", {
+							id: "gridNet",
+							selectionMode: 'multiple',
+							store: netList,
+							showPaging: false,
+							columns:[
+								{field: "networkName", name:"Network"}]
+							}]
+						]]
+					]]
+					]]
+				//]]
+
+			]]
+		).then(function(){
+			
+			if(loadError !== ""){
+				var page = registry.byId("pageMain"),
+				messages = page.get("messageList");
+				messages.addChild(new Message({description:loadError, type:"error"}));
+			}
+			
+			//register listener for project selection field changes
+			registry.byId("selProj").on("change", function() {
+				var e = registry.byId("selProj");
+				var f = registry.byId("selFlav");
+				var p = registry.byId("gridPol");
+				var n = registry.byId("gridNet");
+				curproj = e.value;
+				console.log("Selected Project:: " + e.value);
+				if(curproj !== "" && curproj != "none"){
+					//** refresh the flavors drop-list based on project selection
+					var url1 = "/aps/2/resources/" + aps.context.vars.enduser.aps.id + "/getProjectFlavors";
+					xhr(url1, {	method: "POST",
+							data: JSON.stringify({"aps":{"id": curproj}})
+					}).then(function(res){
+						//clear existing associated array
+						flavors.splice(0,flavors.length);
+						var ftmp = res;
+						if(ftmp !== "undefined"){
+							ftmp.unshift({"aps":{"id":""},"flavorName":""});
+							flavors = ftmp;
+						}
+						var flavorList1 = new Memory({data: flavors, idProperty: "flavorName"});
+						f.set("store", flavorList1);
+					
+					}, function(){
+					});
+					//** end
+					//** refresh policies on project selection
+					url1 = "/aps/2/resources/" + aps.context.vars.enduser.aps.id + "/getProjectPolicies";
+					xhr(url1,{ method:"POST",
+						data: JSON.stringify({"aps":{"id":curproj}})
+						}).then(function(res){
+							//pols.splice(0,polVals.length);
+							pols = res;
+							polList = new Memory({data:pols,idProperty:"policyName"});
+							p.set("store",polList);
+							p.refresh();
+					}, function(){
+						
+					});
+					//** end
+					//**refresh networks on project selection
+					url1 = "/aps/2/resources/" + aps.context.vars.enduser.aps.id + "/getProjectNetworks";
+					xhr(url1,{ method:"POST",
+						data: JSON.stringify({"aps":{"id":curproj}})
+						}).then(function(res){
+							nets = res;
+							netList = new Memory({data:nets,idProperty:"networkName"});
+							n.set("store",netList);
+							n.refresh();
+					}, function(){
+						
+					});
+			}else{
+				//clear policies
+				pols.splice(0,pols.length);
+				polList = new Memory({data:pols,idProperty:"policyName"});
+				p.set("store",polList);
+				p.refresh();
+				//clear networks
+				nets.splice(0,nets.length);
+				netList = new Memory({data:nets,idProperty:"networkName"});
+				n.set("store",netList);
+				//clear flavors
+				flavors.splice(0,flavors.length);
+				var flavorList1 = new Memory({data: flavors, idProperty: "flavorName"});
+				f.set("store", flavorList1);
+			}
+			});
+
+			//register listener for flavor selection field changes
+			registry.byId("selFlav").on("change", function() {
+				var e = registry.byId("selFlav");
+				curFlavName = e.value;
+				console.log("selected Flavor Name: " + curFlavName);
+				//console.log("Selected Flavor:: " + e.value);
+			});
+			
+			//register listener for image selection field changes
+			registry.byId("selImage").on("change", function() {
+				var e = registry.byId("selImage");
+				curimg = e.value;
+				//console.log("Selected Image:: " + e.value);
+			});
+
+			aps.app.onSubmit = function() {
+				console.log("Submit - request");
+				var page = registry.byId("pageMain"),
+				messages = page.get("messageList");
+
+				if (!page.validate()) {
+					console.log("Canceled - Not Validated");
+					aps.apsc.cancelProcessing();
+					return;
+				}
+				else {
+					console.log("Submit - Validated");
+					var n = registry.byId("gridNet");
+					var p = registry.byId("gridPol");
+					var er = ""; //tmp error message
+
+					/* run through our own validation stuff and stack everything where it needs to be
+					*   then push it via the store to create the instance
+					*/
+					//validate the network selection is valid - require at least something
+					
+					if(n.selectionArray.length < 1){
+						er = "At least one network needs to be selected!";
+					}else{
+						//add it to the model
+						window.model.network = n.selectionArray.join(", ");
+					}
+					//add policies if any selected 
+					if(p.selectionArray.length < 1){
+						window.model.opolicies = "";
+					}else{
+						window.model.opolicies = p.selectionArray.join(", ");
+					}
+					// validate the project selection
+					if(curproj === "" || curproj === "none"){
+						er = "Please select a project!";
+					}else{
+						//add it to the model
+						window.model.helionproject.aps.id = curproj;
+					}
+					// validate the flavor selection
+					if(curFlavName === "" || curFlavName === "none"){
+						er = "There was an error determining flavor selection. Please re-select a flavor and try again.";
+					}else{
+						//add it to the model
+						window.model.flavor = curFlavName;
+					}
+					// validate the image selection 
+					if(curimg === "" || curimg === "none"){
+						er = "Please select an image!";
+					}else{
+						//add it to the model
+						window.model.image = curimg;
+					}
+					
+					//if any residual errors cancel and let the user know
+					if(er !== ""){
+						aps.apsc.cancelProcessing();
+						messages.addChild(new Message({description:er, type:"error"}));
+						return;
+					}
+					
+					//console.log("Sending to controller... " + JSON.stringify(window.model));
+
+					//make the call to create the virtual instance		
+					//to-do ... add error handling
+					var url1 = "/aps/2/resources/" + aps.context.vars.enduser.aps.id+ "/createVM";
+					 xhr(url1, {	method: "POST",
+						data: JSON.stringify(window.model)
+						}).then(function(){
+							aps.apsc.gotoView("mycp-main");
+						});
+				}
+			};
+			
+			//cancel the request
+			aps.app.onCancel = function() {
+				aps.apsc.gotoView("mycp-main");
+			};
+		});
+		});
+});
+</script>
+</head>
+<body>
+</body>
+</html>

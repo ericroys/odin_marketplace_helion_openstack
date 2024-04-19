@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<script type="text/javascript" src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+	<script type="text/javascript" src="/aps/2/ui/runtime/client/3rd-party/jquery/jquery.js"></script>
+
+	<script>
+		require([
+			"aps/ResourceStore",
+			"aps/Memory",
+			"dojo/when",
+			"dijit/registry",
+			"dojox/mvc/getStateful",
+			"dojox/mvc/getPlainValue",
+			"dojox/mvc/at",
+			"aps/load",
+			"aps/ready!"
+		], function (Store, Memory, when, registry, getStateful, getPlainValue, at, load) {
+
+		var store = new Store({
+		target: "/aps/2/resources/" + aps.context.vars.user.aps.id
+
+		});
+
+		var helionmodel	 = getStateful(store);
+		var	theuser;
+
+		store.query().then(function(res){
+			theuser = res;
+			helionmodel = getStateful(theuser);
+			//console.log("THE USER: " + theuser + " XXXX: " + helionmodel.user.aps.id);
+			var suser = new Store({
+				target: "/aps/2/resources/" + helionmodel.user.aps.id
+			});
+			
+			suser.query().then(function(su){
+				suser = su;
+				var sumodel = getStateful(suser);
+				console.log("SUSER: " + sumodel);
+				
+
+			load(["aps/PageContainer", { id: "pageContainer" }, [
+				["aps/Container", { cols: 2, id: "contentcreation" }, [
+					["aps/Container", [
+						["aps/FieldSet", [
+							["aps/Output", { id: "username", label: _('User'), value: at(helionmodel, 'helionusername') }] //,
+							//["aps/Select", { id: "profiles", title: _('Profile'), name: _('Profile Select'), store: profiles, value: at(profilesModel.model2.aps, 'id'), labelAttr: 'name' }]
+						]],
+						["aps/FieldSet", [
+							["aps/Output", { label:_('Name'), value: at(sumodel, 'displayName') }],
+
+							["aps/TextBox", { label:_('Email'), value: at(sumodel, 'email') }],
+							["aps/Output", { label:_('Login'), value: at(sumodel, 'login') }]
+						]]
+					]]
+				]]
+			]]).then(function(){
+				
+
+				aps.app.onSubmit = function() {
+
+					var storeresources = new Store({
+						target: "/aps/2/resources/"
+					});
+					console.log(sumodel.aps.id);
+
+					var tmp = sumodel.aps.id;
+					when(storeresources.put(
+						getPlainValue({
+							aps:{
+								id: tmp
+							},
+							email: sumodel.email
+							})
+					)).then (function(){
+						aps.apsc.gotoView("users");
+					
+					});
+						
+				};
+			
+				aps.app.onCancel = function() {
+					aps.apsc.gotoView("users");
+				};
+			});
+		});
+		});
+		});
+		</script>
+</head>
+<body>
+</body>

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+<script>
+require([
+	"aps/load",
+	"aps/ResourceStore",
+	"dojo/when",
+	"dijit/registry",
+	"dojox/mvc/getStateful",
+	"dojox/mvc/getPlainValue",
+	"aps/Message",
+	"dojox/mvc/at",
+	"./errorhandler.js",
+	"aps/xhr",
+	"aps/ready!"
+ ], function (load, Store, when, registry, getStateful, getPlainValue, Message, at, errorhandler, xhr) {
+	var proj = "";
+	if(typeof(aps.context.params.objects) != 'undefined' && typeof(aps.context.params.objects[0]) != 'undefined'){
+		proj = String(aps.context.params.objects[0].aps.id);
+	}else{
+		aps.apsc.gotoView("project");
+	}
+	
+	var storeProj = new Store({	target:"/aps/2/resources",
+		idProperty: "aps.id"
+	});
+	storeProj.get(proj).then(function (projex){
+	var model = getStateful(projex);
+	var txtVal = "Please enter a value greater or equal to -1";
+	var txtPat = "^-1?|[0-9]+";
+	
+	var url2 = "/aps/2/resources/" + proj + "/getBalance";
+
+	xhr(url2, {method: "GET", handleAs: "text"}).then(function(res){
+		var result = res.replace(/\\/g, "");
+		result = result.substring(1, result.length - 1);
+		if (result[0] == "\""){
+			result = result.substring(1);
+		}
+		if (result[result.length - 1] == "\""){
+			result = result.substring(0, result.length-1);
+		}
+		var balance = JSON.parse(result);
+		
+		load(["aps/PageContainer", { id: "page" },[
+		     ["aps/Container", {cols:0, title:"Project Quotas"},[
+				["aps/FieldSet",[
+					["aps/TextBox", {
+						required: false,
+						label: "Cores",
+						Hint: balance.cores + " Cores available",
+						value: at(model.osquota, 'cores')
+					}],
+					["aps/TextBox", {
+						required: false,
+						label: "Fixed IPs",
+						Hint: balance.fixed_ips + " Fixed IPs available",
+						pattern: txtPat,
+						invalidMessage:txtVal,
+						value: at(model.osquota, 'fixed_ips')
+					}],
+					["aps/TextBox", {
+						required: false,
+						label: "Floating IPs",
+						Hint: balance.floating_ips + " Floating IPs available",
+						pattern: txtPat,
+						invalidMessage:txtVal,
+						value: at(model.osquota, 'floating_ips')
+					}],
+					["aps/TextBox", {
+						required: false,
+						label: "File Content (bytes)",
+						Hint: balance.injected_file_content_bytes + " File Content (bytes) available",
+						pattern: txtPat,
+						invalidMessage:txtVal,
+						value: at(model.osquota, 'injected_file_content_bytes')
+					}],
+					["aps/TextBox", {
+						required: false,
+						label: "File Path (bytes)",
+						Hint: balance.injected_file_path_bytes + " File Path (bytes) available",
+						pattern: txtPat,
+						invalidMessage:txtVal,
+						value: at(model.osquota, 'injected_file_path_bytes')
+					}],
+					["aps/TextBox", {
+						required: false,
+						label: "Injected Files",
+						Hint: balance.injected_files + " Injected Files available",
+						pattern: txtPat,
+						invalidMessage:txtVal,
+						value: at(model.osquota, 'injected_files')
+					}],
+					["aps/TextBox", {
+						required: false,
+						label: "Instances",
+						Hint: balance.instances + " Instances available",
+						pattern: txtPat,
+						invalidMessage:txtVal,
+						value: at(model.osquota, 'instances')
+					}],
+					["aps/TextBox", {
+						required: false,
+						label: "Key Pairs",
+						Hint: balance.key_pairs + " Key Pairs available",
+						pattern: txtPat,
+						invalidMessage:txtVal,
+						value: at(model.osquota, 'key_pairs')
+					}],
+					["aps/TextBox", {
+						required: false,
+						label: "Meta Data Items",
+						Hint: balance.metadata_items + " Meta Data Items available",
+						pattern: txtPat,
+						invalidMessage:txtVal,
+						value: at(model.osquota, 'metadata_items')
+					}],
+					["aps/TextBox", {
+						required: false,
+						label: "Ram (MB)",
+						Hint: balance.ram + " Ram (MB) available",
+						value: at(model.osquota, 'ram')
+					}],
+					["aps/TextBox", {
+						required: false,
+						label: "Security Group Rules",
+						Hint: balance.security_group_rules + " Security Group Rules available",
+						pattern: txtPat,
+						invalidMessage:txtVal,
+						value: at(model.osquota, 'security_group_rules')
+					}],
+					["aps/TextBox", {
+						required: false,
+						label: "Security Groups",
+						Hint: balance.security_groups + " Security Groups available",
+						pattern: txtPat,
+						invalidMessage:txtVal,
+						value: at(model.osquota, 'security_groups')
+					}],
+					["aps/TextBox", {
+						required: false,
+						label: "Networks",
+						Hint: balance.networks + " Networks available",
+						pattern: txtPat,
+						invalidMessage:txtVal,
+						value: at(model.osquota, 'networks')
+					}],
+					["aps/TextBox", {
+						required: false,
+						label: "Ports",
+						Hint: balance.ports + " Ports available",
+						pattern: txtPat,
+						invalidMessage:txtVal,
+						value: at(model.osquota, 'ports')
+					}],
+					["aps/TextBox", {
+						required: false,
+						label: "Subnets",
+						Hint: balance.subnets + " Subnets available",
+						pattern: txtPat,
+						invalidMessage:txtVal,
+						value: at(model.osquota, 'subnets')
+					}],
+					["aps/TextBox", {
+						required: false,
+						label: "Routers",
+						Hint: balance.routers + " Routers available",
+						pattern: txtPat,
+						invalidMessage:txtVal,
+						value: at(model.osquota, 'routers')
+					}],
+					["aps/TextBox", {
+						required: false,
+						label: "Server Groups",
+						Hint: balance.server_groups + " Server Groups available",
+						pattern: txtPat,
+						invalidMessage:txtVal,
+						value: at(model.osquota, 'server_groups')
+					}],
+					["aps/TextBox", {
+						required: false,
+						label: "Server Group Members",
+						Hint: balance.server_group_members + " Server Group Members available",
+						pattern: txtPat,
+						invalidMessage:txtVal,
+						value: at(model.osquota, 'server_group_members')
+					}]
+				]]
+			]]
+		]]).then(function(){
+			aps.app.onSubmit = function() {
+				var page = registry.byId("page"),
+				messages = page.get("messageList");
+
+				if (!page.validate()) {
+					aps.apsc.cancelProcessing();
+					return;
+				}else{
+					var url1 = "/aps/2/resources/" + proj + "/updateQuota";
+					xhr(url1, {	method: "POST",
+						data: JSON.stringify(model)
+						}).then(function(){
+							aps.apsc.gotoView("project");
+						}).otherwise(errorhandler);
+				}
+			};
+
+			aps.app.onCancel = function() {
+				aps.apsc.gotoView("project");
+			};
+		});
+
+	}).otherwise(errorhandler);
+
+	});
+});
+</script>
+</head>
+<body>
+</body>
+</html>

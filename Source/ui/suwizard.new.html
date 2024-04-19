@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+<script>
+   require([
+          "dijit/registry",
+          "dojox/mvc/getPlainValue",
+          "dojox/mvc/at",
+          "aps/load",
+          "aps/Memory",
+          "dojox/mvc/getStateful",
+          "aps/ready!"
+      ], function (registry, getPlainValue, at, load, Memory, getStateful) {
+         
+		var user = getStateful(aps.context.params.user);
+		/* Create widgets */
+		var widgets =
+			["aps/PageContainer", {id: "page"},[
+				["aps/FieldSet", { id: "wizardNew_general", title: "Enable Helion Openstack Service"}, [
+					["aps/Output", { label: _('Name'), value: at(user,'displayName') }],
+					["aps/Output", { label: _('Email'), value: at(user,'login') }]
+				]]
+			]];
+		
+		load(widgets).then(function(){
+		/* Create handlers for the navigation buttons */
+			aps.app.onCancel = function() {
+				aps.apsc.gotoView("users");
+			};
+
+			aps.app.onNext = function() {
+				var page = registry.byId("page");
+				page.get("messageList").removeAll();
+				if (!page.validate()) {
+					aps.apsc.cancelProcessing();
+					return;
+				}
+				var model = {
+					aps:{type:"http://hp.com/users/1.0"},
+					tenant: [{ aps: {id: aps.context.vars.tenant.aps.id}}]
+				};
+
+                 /* For POA 6.x, use the aps.apsc.next method for navigation */
+                // aps.apsc.gotoView("", null, {user:"user"});
+                 /* For POA 5.5, replace the above call with aps.apsc.gotoView as follows */
+                 aps.apsc.gotoView("empty", null, { objects: [getPlainValue(model)], userAttr: "user" });
+             };
+          });
+	}
+);
+</script>
+</head>
+<body>
+</body>
+</html>

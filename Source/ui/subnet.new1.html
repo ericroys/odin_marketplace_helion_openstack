@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+<script>
+	require([
+		"aps/xhr",
+		"dojo/promise/all",
+		"aps/load",
+		"aps/Memory",
+		"aps/ResourceStore",
+		"dojo/when",
+		"dijit/registry",
+		"aps/parser",
+		"dojox/mvc/getStateful",
+		"dojox/mvc/getPlainValue",
+		"aps/Message",
+		"dojo/_base/lang",
+		"dojox/mvc/at",
+		"dojo/text!./newsubnet.json",
+		"aps/ready!"
+	], function (xhr, all, load, Memory, Store, when, registry, parser, getStateful, getPlainValue, Message, lang, at, newsubnet) {
+				
+		//define current selected Network
+		var currNetwork = "";
+		var currGatewayDisabled = false;
+		//var currDhcpEnabled = false;
+		var currIPVersion = "4"; //default ipVersion is 4
+		
+		var store = new Store({ target: "/aps/2/resources" });
+		//console.log(aps.context.vars.tenant.aps.id);
+		window.model = getStateful(lang.mixin(window.model, getStateful(JSON.parse(newsubnet))));
+		
+		if(typeof(aps.context.params.objects) != 'undefined' && typeof(aps.context.params.objects[0]) != 'undefined'){
+			currNetwork = String(aps.context.params.objects[0].aps.id);
+			var nStore = new Store({
+				target:     "/aps/2/resources/"
+		});
+			when(nStore.get(currNetwork), function (net){
+				var modNet = getStateful(net);
+				//load the page and widgets and stuff
+				load(["aps/PageContainer", { id: "pageMain" },[
+						["aps/Container", {cols:0, title:"Create New Subnet"},[
+							["aps/FieldSet",[
+								["aps/TextBox", {
+									required: true,
+									label: "Subnet Name",
+									id: "subnetName",
+									value: window.model.subnetName
+								}]
+								,
+								["aps/Output", { title:_('Network'), value: modNet.networkName }],
+								["aps/TextBox", {
+										required: true,
+										label: "Network Address",
+										id: "networkAddress",
+										hint: "CIDR Notation. Ex: 192.168.0.0/24",
+										pattern: "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/(3[0-2]|[1-2]?[0-9])",
+										invalidMessage:"Please enter a value in CIDR Notation. Ex: 192.168.0.0/24",
+										value: window.model.networkAddress
+								}]
+								,
+								["aps/Select", {
+									label:"IP Version",
+									required: true,
+									options: [ { label: "4", value: "4" },
+							                   { label: "6", value: "6" } ],
+									labelAttr: "ipVersion",
+									id: "ipVersion"
+			                    }],
+								["aps/CheckBox",{
+									id:"gatewayDisabled",
+									required: false,
+									value: true,
+									label: "Gateway Disabled"
+								}]
+								,
+								["aps/TextBox", {
+									required: true,
+									label: "Gateway IP",
+									id: "gatewayIP",
+									value: window.model.networkAddress
+								}]
+								,
+								["aps/CheckBox",{
+									id:"dhcpEnabled",
+									name: "dhcpEnabled",
+									required: true,
+									value: true,
+									label: "DHCP Enabled"
+								}],
+								["aps/TextBox", {
+									required: false,
+									label: "Allocation Pools",
+									id: "allocationPools",
+									value: window.model.allocationPools
+								}],
+								["aps/TextBox", {
+									required: false,
+									label: "DNS Servers",
+									id: "dnsServers",
+									value: window.model.dnsServers
+								}],
+								["aps/TextBox", {
+									required: false,
+									label: "Host Routes",
+									id: "hostRoutes",
+									value: window.model.hostRoutes
+								}]
+							]]//end fieldset
+						]]//end container
+					]]//end page container
+				).then(function(){
+
+				//register listener for Network selection field changes
+				registry.byId("ipVersion").on("change", function() {
+					var e = registry.byId("ipVersion");
+					currIPVersion = e.value;
+					console.log("Selected IP Version:: " + e.value);
+				});
+				
+				//register listener for Gateway Disabled checkbox changes
+				registry.byId("gatewayDisabled").on("click", function() {
+					var e = registry.byId("gatewayDisabled");
+					currGatewayDisabled = e.checked;
+					console.log("Gateway Disabled:: " + e.checked);
+					registry.byId("gatewayIP").set("disabled",e.checked);
+					registry.byId("gatewayIP").set("required",!e.checked);
+				});
+
+				aps.app.onSubmit = function() {
+					console.log("Submit - request");
+					var page = registry.byId("pageMain"),
+					messages = page.get("messageList");
+
+					if (!page.validate()) {
+						console.log("Canceled - Not Validated");
+						aps.apsc.cancelProcessing();
+						return;
+					}
+					else {
+						console.log("Submit - Validated");
+						var er = ""; //tmp error message
+						var gd = registry.byId("gatewayDisabled");
+						var de = registry.byId("dhcpEnabled");
+
+						//convert true/false as needed
+						if(gd.checked){
+							window.model.gatewayDisabled = "true";
+						}else{
+							window.model.gatewayDisabled = "false";
+						}
+						if(de.checked){
+							window.model.dhcpEnabled = "true";
+						}else{
+							window.model.dhcpEnabled = "false";
+						}
+
+						window.model.subnetName			= registry.byId("subnetName").value;
+						window.model.gatewayIp			= registry.byId("gatewayIP").value;
+						window.model.allocationPools	= registry.byId("allocationPools").value;
+						window.model.dnsServers			= registry.byId("dnsServers").value;
+						window.model.hostRoutes			= registry.byId("hostRoutes").value;
+						window.model.networkAddress		= registry.byId("networkAddress").value;
+						window.model.network.aps.id = currNetwork;
+							
+						if(currIPVersion === ""){
+							er = "Please select IP Version.";
+						}else{
+							//add it to the model
+							window.model.ipVersion = currIPVersion;
+						}
+					//console.log("Subnet Values: " + getPlainValue(window.model));
+						when(
+							store.put(getPlainValue(window.model)),
+							function() {
+								aps.apsc.gotoView("networks");
+							},
+							function(err) {
+								aps.apsc.cancelProcessing();
+								messages.removeAll();
+								messages.addChild(new Message({description: err, type: "error"}));
+							}
+						);
+						}//end else
+					}; //end onsubmit
+					aps.app.onCancel = function() {
+						aps.apsc.gotoView("networks");
+					};
+				});
+				//error back to networks page
+			},function(){
+				aps.apsc.gotoView("networks");
+			});
+		}else{
+			aps.apsc.gotoView("networks");
+		}
+});
+</script>
+</head>
+<body>
+</body>
+</html>

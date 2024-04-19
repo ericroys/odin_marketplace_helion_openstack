@@ -1,0 +1,47 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<script type="text/javascript" src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+<script type="text/javascript">
+			require([
+				"aps/ResourceStore",
+				"aps/load",
+				"dojo/when",
+				"dojox/mvc/getStateful",
+				"aps/ready!"
+			], function(Store, load, when, getStateful){
+				
+				var usr = new Store({
+					apsType: "http://hp.com/users/1.0",
+					target: "/aps/2/resources/" + aps.context.params.user.aps.id
+				});
+				
+				when(usr.query()).then(function (res){
+					var modelProto = res;
+					var model = getStateful(modelProto);
+					
+					load(
+						["aps/PageContainer", {id: "pageContainer"}, [
+							["aps/FieldSet", [
+								
+									["aps/Output", {
+										label: "Parallels User",
+										value: model.fullName }],
+									["aps/Output", {
+										label: "Email Address",
+										value: model.email}],
+									["aps/Output", {
+										label: "Helion User Name",
+										value: model.login
+									}]
+								]]
+							]]
+						);
+				});
+			});
+</script>
+</head>
+<body>
+</body>
+</html>
+

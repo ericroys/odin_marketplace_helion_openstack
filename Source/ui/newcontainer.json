@@ -1,0 +1,20 @@
+{
+    "aps": {
+        "type": "http://hp.com/helionobjectstorecontainer/1.0"
+    },
+    "containername": "",
+    "containerreadacl":"",
+    "containerwriteacl":"",
+    "containermetadataone":"",
+    "containermetadatatwo":"",
+    "containermetadatathree":"",
+    "containermb": "",
+    "containercount":"",
+    "helionproject": {
+        "aps": {
+            "link": "strong",
+            "id": ""
+        }
+    }
+    
+}

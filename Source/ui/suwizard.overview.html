@@ -1,0 +1,51 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<title>OwnCloudt</title>
+		<script type="text/javascript" src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+		<script type="text/javascript">
+			require([
+				"aps/ResourceStore",
+				"dojo/Deferred",
+				"dijit/registry",
+				"aps/load",
+				"aps/ready!"
+			], function(Store, Deferred, registry, load){
+				var userRequest = new Deferred(),
+				isNew = aps.context.view.id.indexOf("suwizard.overview") > -1;
+				//containerTitle = isNew? _("Helion") : "";
+
+				if (isNew) {
+					if(typeof(aps.context.params.objects[0]) != 'undefined'){
+							userRequest.resolve(aps.context.params.objects[0]);
+					}
+					else {
+						load([ "aps/PageContainer", {id: "pageContainer"}, [
+								["aps/Message", {
+									description : _('HP Helion will not be activated for this user due lack of resources'),
+										type : "warning"}
+								]
+						]]);
+					}
+				}
+
+				userRequest.then(function () {
+
+					load(
+						["aps/PageContainer", { id: "pageContainer" }, [
+							["aps/FieldSet", [
+								["aps/Container", { label: _('Adding Helion Openstack service for service user.') }, [
+									
+									
+								]]
+							]]
+						]]
+					);
+				});
+			});
+		</script>
+	</head>
+	<body>
+	</body>
+</html>
+

@@ -1,0 +1,15 @@
+{
+    "aps": {
+        "type": "http://hp.com/helionnetwork/1.0"
+    },
+    "networkName": "",
+    "adminstate":"",
+    "shared":"",
+    "externalnetwork":"",
+    "project": {
+        "aps": {
+            "link": "strong",
+            "id": ""
+        }
+    }
+}

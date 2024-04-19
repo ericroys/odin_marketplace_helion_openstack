@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+<script>
+	require([
+		"aps/xhr",
+		"dojo/promise/all",
+		"aps/load",
+		"aps/Memory",
+		"aps/ResourceStore",
+		"dojo/when",
+		"dijit/registry",
+		"aps/parser",
+		"dojox/mvc/getStateful",
+		"dojox/mvc/getPlainValue",
+		"aps/Message",
+		"dojo/_base/lang",
+		"dojox/mvc/at",
+		"dojo/text!./newsecurityrule.json",
+		"aps/ready!"
+	], function (xhr, all, load, Memory, Store, when, registry, parser, getStateful, getPlainValue, Message, lang, at, newsecurityrule) {
+				
+		//define current selected Network
+		var currPolicy = "";
+		var currIPProtocol="";
+		var currDirection="";
+		var currEthernetType="";
+			
+		
+		var store = new Store({ target: "/aps/2/resources" });
+		console.log(aps.context.vars.tenant.aps.id);
+		window.model = getStateful(lang.mixin(window.model, getStateful(JSON.parse(newsecurityrule))));
+		
+		
+		//define the store to get the list of policies
+		var policies  = new Store({
+			apsType:    "http://hp.com/helionsecuritygroup/1.0",
+			target:     "/aps/2/resources"
+			});
+		var nw = [];
+		//drop in an empty value
+		nw.push({"aps":{"id":""}, "policyName":""});
+
+		//define object to hold the projs
+		var policyList = new Memory({data: [{"aps":{"id":""},"policyName":""}], idProperty: "aps.id" });
+
+	
+		
+		//query the policies and push each into the array
+		policies.query().forEach( function(data){
+			//finish loading the array
+			console.log("PolicyName####"+data.policyName);
+			policyList.add({aps:{id:data.aps.id},policyName:data.policyName});
+			
+		}).then(function(){
+			
+			//load the page and widgets and stuff
+			load(["aps/PageContainer", { id: "pageMain" },[
+					["aps/Container", {cols:0, title:"Create New Rule"},[
+						["aps/FieldSet",[
+							
+							["aps/Select", {
+								label:"Policy Name",
+								required: true,
+		                        store: policyList,
+		                        labelAttr: "policyName",
+		                        id: "selPolicy"
+		                        }]
+							,
+							["aps/Select", {
+								label:"Direction",
+								required: true,
+								options: [
+								           { label: "", value: "" },
+								           { label: "ingress", value: "ingress" },
+						                   { label: "egress", value: "egress" }],
+								labelAttr: "direction",
+								id: "direction"
+							}],
+		                    ["aps/Select", {
+								label:"Ethernet Type",
+								required: true,
+								options: [
+								           { label: "", value: "" },
+								           { label: "IPv4", value: "IPv4" },
+						                   { label: "IPv6", value: "IPv6" }],
+								labelAttr: "etherType",
+								id: "etherType"
+		                    }],
+							["aps/Select", {
+								label:"IP Protocol",
+								required: true,
+								options: [
+								           { label: "", value: "" },
+								           { label: "tcp", value: "tcp" },
+						                   { label: "udp", value: "udp" },
+						                   { label: "icmp", value: "icmp" }],
+								labelAttr: "ipProtocol",
+								id: "ipProtocol"
+		                    }]
+							,
+							["aps/TextBox", {
+								pattern : "\\d+",
+								required: true,
+								label: "From Port",
+								id: "fromPort",
+								value: window.model.fromPort
+							}]
+							,
+							["aps/TextBox", {
+								pattern : "\\d+",
+								required: true,
+								label: "to Port",
+								id: "toPort",
+								value: window.model.toPort
+							}]
+							,
+							["aps/TextBox", {
+								required: false,
+								label: "Destination IPs",
+								id: "destinationIps",
+								value: window.model.destinationIps
+							}]
+						]]//end fieldset
+					]]//end container
+				]]//end page container
+			).then(function(){
+
+			//register listener for Policy selection field changes
+			registry.byId("selPolicy").on("change", function() {
+				var e = registry.byId("selPolicy");
+				currPolicy = e.value;
+				//console.log("Selected Network:: " + e.value);
+			});
+			//register listener for IP Protocol selection field changes
+			registry.byId("ipProtocol").on("change", function() {
+				var e = registry.byId("ipProtocol");
+				currIPProtocol = e.value;
+				//console.log("Selected IP Version:: " + e.value);
+			});
+		
+			//register listener for Direction selection field changes
+			registry.byId("direction").on("change", function() {
+				var e = registry.byId("direction");
+				currDirection = e.value;
+				//console.log("Selected Direction:: " + e.value);
+			});
+			
+			//register listener for Network selection field changes
+			registry.byId("etherType").on("change", function() {
+				var e = registry.byId("etherType");
+				currEthernetType = e.value;
+				//console.log("Selected IP EthernetType:: " + e.value);
+			});
+
+			aps.app.onSubmit = function() {
+				//console.log("Submit - request");
+				var page = registry.byId("pageMain"),
+				messages = page.get("messageList");
+
+				if (!page.validate()) {
+					console.log("Canceled - Not Validated");
+
+					aps.apsc.cancelProcessing();
+					return;
+				}
+				else {
+					console.log("Submit - Validated");
+					var er = ""; //tmp error message
+					window.model.fromPort = registry.byId("fromPort").value;
+					window.model.toPort = registry.byId("toPort").value;
+					window.model.destinationIps = registry.byId("destinationIps").value;
+					
+					if(parseInt(window.model.fromPort, 10) > parseInt(window.model.toPort,10)){
+						er = "The From Port Must be Less than the To Port";
+					}
+					//Validate currDirection
+					if(currPolicy === ""){
+						er = "Please select a Security Group.";
+					}else{
+						//add it to the model
+						window.model.securityGroup.aps.id    = currPolicy;
+					}
+					
+					//Validate currDirection
+					if(currDirection === ""){
+						er = "Please select a Direction.";
+					}else{
+						//add it to the model
+						window.model.direction = currDirection;
+					}
+					
+					//Validate Ether Type
+					if(currEthernetType === ""){
+						er = "Please select Ethernet Type.";
+					}else{
+						//add it to the model
+						window.model.etherType = currEthernetType;
+					}
+					
+					//Validate currIPProtocol
+					if(currIPProtocol === ""){
+						er = "Please select a IP Protocol.";
+					}else{
+						//add it to the model
+						window.model.ipProtocol = currIPProtocol;
+					}
+					
+					if(er !== ""){
+						aps.apsc.cancelProcessing();
+						messages.addChild(new Message({description:er, type:"error"}));
+						return;
+					}
+
+				console.log("Rules Values: " + JSON.stringify(window.model));
+					when(
+						
+						store.put(getPlainValue(window.model)),
+						function() {
+							aps.apsc.gotoView("securities");
+						},
+						function(err) {
+							aps.apsc.cancelProcessing();
+							messages.removeAll();
+							messages.addChild(new Message({description: err, type: "error"}));
+						}
+					);
+					}//end else
+				}; //end onsubmit
+
+				aps.app.onCancel = function() {
+					aps.apsc.gotoView("securities");
+				};
+			});
+		});
+	});
+</script>
+</head>
+<body>
+</body>
+</html>

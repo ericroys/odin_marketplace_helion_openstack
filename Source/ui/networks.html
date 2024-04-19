@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script type="text/javascript" src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+<script>
+require([
+	"aps/Memory",
+	"dojo/when",
+	"dojo/promise/all",
+	"aps/ResourceStore",
+	"dijit/registry",
+	"aps/PageContainer",
+	"dojox/mvc/getStateful",
+	"aps/load",
+	"aps/Select",
+	"aps/Grid",
+	"dojox/mvc/getPlainValue",
+	"aps/Message",
+	"dojo/_base/array",
+	"aps/xhr",
+	"./errorhandler.js",
+	"aps/ready!"
+], function (Memory, when, all, Store, registry, PageContainer, getStateful, load, Select, Grid, getPlainValue, Message, arr, xhr, errorhandler) {
+		
+	var storeNetworks = new Store({
+		target : "/aps/2/resources/" + aps.context.vars.tenant.aps.id + "/getListNetworks"
+	});
+
+	var curNetwork = "";
+	//vars for the second table store. They are populated under condition of selection of the first table
+	var nSubnets = [];
+	var nSubnetList = new Memory({data:nSubnets,idProperty:"aps.id"});
+	var projCount = 0;
+	var projStore = new Store({
+		target:     "/aps/2/resources/" + aps.context.vars.tenant.aps.id + "/projects"
+	});
+
+	when(all([projStore.query()]), function(res){
+		projCount = res[0].length;
+	});
+	
+	load(["aps/PageContainer", { id: "page" },
+		[["aps/Container",{title:"Networks"},[
+		["aps/Grid",{
+			selectionMode: 'single',
+			id:"gridNets",
+			errorHandler: errorhandler,
+			store:  storeNetworks,
+			columns: [
+				{ field: "networkName", name: "Network Name" },
+				{ field: "adminstate", name: "Admin State" },
+				{ field: "shared", name: "Shared" },
+				{ field: "externalnetwork", name: "External Network" }/*,
+				{ field: "managed", name: "Managed By"}*/
+			]
+			}, [
+			["aps/Toolbar", [
+				["aps/ToolbarButton", { id: "newNetwork", iconName: "./images/add.png", label: _('Add') }],
+				["aps/ToolbarButton", { id: "deleteNetwork", iconName: "./images/delete.png", label: _('Delete'), requireItems: true }],
+				["aps/ToolbarButton", { id: "addSubnet", iconName:"./images/add.png", label: _('Add Subnet'), requireItems: true }]
+			]]
+			]] //end of grid one
+			]], //end of container one
+			["aps/Container",{id:"assoc",
+				title:"Subnets Associated to Selected Network"},[
+				["aps/Grid",{
+					selectionMode: 'multiple',
+					id:"gridSubnets",
+					store:  nSubnetList,
+					columns: [
+						{ field: "subnetName", name: "Name" },
+						{ field: "networkAddress", name: "Network Address"},
+						{ field: "ipVersion", name: "Version"},
+						{ field: "gatewayDisabled", name: "Gateway Disabled"},
+						{ field: "gatewayIp", name: "Gateway IP"},
+						{ field: "dhcpEnabled", name: "DHCP Enabled"},
+						{ field: "allocationPools", name: "Allocation Pools"},
+						{ field: "dnsServers", name: "DNS Servers"},
+						{ field: "hostRoutes", name: "Host Routes"}
+					]},[
+						["aps/Toolbar", [
+							["aps/ToolbarButton", { id: "deleteSubnet", iconName: "./images/delete.png", label: _('Delete Subnet'), requireItems: true }]
+						]]
+					]
+				]]
+			]// end of second grid
+	]]).then (function(){
+					
+		var grid = registry.byId("gridNets"),
+		gridSubnets = registry.byId("gridSubnets"),
+		page = registry.byId("page"),
+		messages = page.get("messageList");
+		
+		//delete the Network
+		registry.byId("deleteNetwork").on("click", function() {
+			var sel = grid.get("selectionArray"),
+			counter = sel.length,
+			self = this;
+			messages.removeAll();
+
+			var storeNetworks = new Store({
+				target : "/aps/2/resources/"
+			});
+
+			arr.forEach(sel, function(nid){
+				//console.log("deleting network: " + nid);
+				//don't try to delete any OS managed networks
+				if(nid.indexOf("openstack") < 0){
+					when(storeNetworks.remove(sel), function() {
+						sel.splice(sel.indexOf(nid),1);
+						nSubnets.splice(0,nSubnets.length);
+						grid.refresh();
+						gridSubnets.refresh();
+						if(--counter === 0) {self.cancel();}
+					},function(err){
+						errorhandler(err);
+						grid.refresh();
+						if(--counter === 0) {self.cancel();}
+					});
+				}else{
+					messages.addChild(new Message({ description: "This network is not managed via OSA and therefore can't be deleted!", type: "error" }));
+					self.cancel();
+				}
+			});
+		});
+					
+		//delete the Subnet
+		registry.byId("deleteSubnet").on("click", function() {
+			var selSubnets = gridSubnets.get("selectionArray"),
+			counter = selSubnets.length,
+			self = this;
+			messages.removeAll();
+			
+			var storeSubs = new Store({
+				target : "/aps/2/resources/"
+			});
+			
+			arr.forEach(selSubnets, function (sid){
+				if(sid.indexOf("openstack") < 0){
+					when(storeSubs.remove(sid), function(){
+						selSubnets.splice(selSubnets.indexOf(sid),1);
+						nSubnets.splice(0,nSubnets.length);
+						gridSubnets.refresh();
+						if(--counter === 0){self.cancel();}
+					}, function(err){
+						errorhandler(err);
+						gridSubnets.refresh();
+						if(--counter === 0){ self.cancel();}
+					});
+				}else{
+					messages.addChild(new Message({description:"This subnet is not managed by OSA and can't be deleted!", type:"error"}));
+					self.cancel();
+					gridSubnets.refresh();
+				}
+			});
+		});
+					
+		//action behind the add network button
+		registry.byId("newNetwork").on("click", function(){
+			if(projCount === 0){
+				var self = this;
+				var page = registry.byId("page"),
+				messages = page.get("messageList");
+				self.cancel();
+				messages.addChild(new Message({description:"You need to add a project prior to creating a network", type:"error"}));
+			}
+			else{
+				aps.apsc.gotoView("network.new");
+			}
+		});
+
+		//action behind the add subnet button
+		registry.byId("addSubnet").on("click", function(){
+			var self = this;
+			var xnet = String(curNetwork);
+			if(xnet.indexOf("openstack") > -1){
+				messages.removeAll();
+				messages.addChild(new Message({description:"You can't add a subnet for a non-managed network!", type:"error"}));
+				self.cancel();
+			}
+			else{
+				var name = "";
+				when(storeNetworks.query(xnet), function(res){
+					name = res.networkName;
+					if(name !== ""){
+						aps.apsc.gotoView("subnet.new1", null, { objects: [{"aps":{"id":xnet}}]});
+					}else{
+						messages.removeAll();
+						messages.addChild(new Message({description:"Unable to resolve network name!", type:"error"}));
+						self.cancel();
+					}
+					//deal with error
+					}, function(){
+						messages.removeAll();
+						messages.addChild(new Message({description:"Unable to resolve network name!", type:"error"}));
+						self.cancel();
+					});
+			}
+		});
+
+		//handle user selection of the first grid's table row so we can populate the 
+		//second table appropriately
+		grid.get("selectionArray").watchElements(function(){
+			curNetwork = this;
+			var xnet = String(curNetwork);
+			var sel = grid.get("selectionArray");
+			if(sel.length > 0){
+				var url1 = "/aps/2/resources/" + aps.context.vars.tenant.aps.id + "/getListSubnets";
+				//send the right stuff depending on managed or not
+				var cont = "";
+				if(xnet.indexOf("openstack") > -1){
+					cont = JSON.stringify({"aps":{"id":""}, "networkName": xnet.substr((xnet.indexOf("-")+1))});
+				}else{
+					cont = JSON.stringify({"aps":{"id":xnet}, "networkName": ""});
+				}
+				xhr(url1, {	method: "POST",	data: cont}).then(
+					function(res){
+						nSubnets.splice(0,nSubnets.length);
+						for(var u = 0;u<res.length;u++){
+							nSubnets.push(res[u]);
+						}
+						gridSubnets.refresh();
+					}).otherwise(
+					function(err){
+						nSubnets.splice(0,nSubnets.length);
+						errorhandler(err);
+						gridSubnets.refresh();
+					});
+			}
+		});
+	});
+});
+</script>
+</head>
+<body>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+    "aps": {
+        "type": "http://hp.com/helioninstance/1.1"
+    },
+    "instancename": "",
+    "zone": "Nova",
+    "flavor": "",
+    "instancecount": 0,
+    "network":"",
+    "image": "",
+    "opolicies":"",
+    "helionproject": {
+        "aps": {
+            "link": "strong",
+            "id": ""
+        }
+    }
+}

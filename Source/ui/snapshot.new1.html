@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+<script>
+	require([
+		"aps/xhr",
+		"aps/load",
+		"aps/Memory",
+		"aps/ResourceStore",
+		"dojo/when",
+		"dijit/registry",
+		"dojox/mvc/getStateful",
+		"dojox/mvc/getPlainValue",
+		"aps/Message",
+		"aps/WizardData",
+		"aps/ready!"
+	], function (xhr, load, Memory, Store, when, registry, getStateful, getPlainValue, Message, wizardData) {
+		
+		var model = getStateful(wizardData.get());
+		console.log("MODEL: " + JSON.stringify(model));
+		//var store = new Store({ target: "/aps/2/resources" });
+		//console.log(aps.context.vars.enduser.aps.id);
+
+		//load the page and widgets and stuff
+		load(["aps/PageContainer", { id: "pageMain" },[
+			["aps/Container", {cols:0, title:"Create Snapshot"},[
+				["aps/FieldSet",[
+					["aps/TextBox", {
+						required: true,
+						label: "Snapshot Name",
+						id: "snapshotName"
+					}]
+				]]//end fieldset
+			]]//end container
+			]]//end page container
+		).then(function(){
+
+			aps.app.onSubmit = function() {
+				//console.log("Submit - request");
+				var page = registry.byId("pageMain"),
+				messages = page.get("messageList");
+				messages = "";
+
+				if (!page.validate()) {
+					//console.log("Canceled - Not Validated");
+					aps.apsc.cancelProcessing();
+					return;
+				}
+				else {
+					//console.log("Submit - Validated");
+					var name = registry.byId("snapshotName").value;
+					
+					var url1 = "/aps/2/resources/" + aps.context.vars.enduser.aps.id+ "/createSnapshotVM";
+					xhr(url1, {	method: "POST",
+						data: JSON.stringify({"aps":{"id": model.apsid},"snapshotName": name})
+					}).then(function(){
+							aps.apsc.gotoView("snapshots");
+					});
+				}//end else
+				}; //end onsubmit
+
+				aps.app.onCancel = function() {
+					aps.apsc.gotoView("mycp-main");
+				};
+			
+			});
+	});
+</script>
+</head>
+<body>
+</body>
+</html>

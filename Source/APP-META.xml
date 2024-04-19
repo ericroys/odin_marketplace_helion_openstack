@@ -1,0 +1,429 @@
+<application packaged="2016-02-10T10:07:46" version="2.0" xmlns="http://aps-standard.org/ns/2">
+    <id>http://hp.com/helionopenstack</id>
+    <name>HP Helion OpenStack</name>
+    <version>1.0</version>
+    <release>152</release>
+    <homepage>http://www8.hp.com/us/en/cloud/helion-overview.html</homepage>
+    <vendor>
+    	<name>Hewlett Packard</name>
+    	<homepage>http://www.hp.com</homepage>
+    	<icon path="images/HP.png"/>
+    </vendor>
+  	<packager>
+           <name>Avnet</name>
+    	   <homepage>http://www.services.avnet.com/</homepage>
+    	   <icon path="images/Avnet.png"/>
+    	   <uri>http://www.services.avnet.com/</uri>
+        </packager>
+    <presentation>
+    	<summary>HP Helion OpenStack®</summary>
+    	<description>HP Helion OpenStack® is an open and extensible scale out cloud platform for building and consuming hybrid clouds. HP Helion OpenStack® is a hardened and curated commercial-grade product designed to deliver the best open source cloud computing technology in a resilient, maintainable, and easy to install solution. </description>
+        <icon path="images/Helion.png"/>
+        <screenshot path="images/Screenshot01.png">
+        	<description>Primary OpenStack Administration Interface</description>
+        </screenshot>
+        <changelog>
+        	<version release="111" version="1.0">
+        		<entry>Initial Release</entry>
+        	</version>
+        	<version release="112" version="1.0">
+        		<entry>Update to users-list html to remove unnecessary globals references causing error.</entry>
+        	</version>
+        	<version release="113" version="1.0">
+        		<entry>Update to remove Flot references</entry>
+        	</version>
+        	<version release="115" version="1.0">
+        		<entry>update to user.view-edit</entry>
+        	</version>
+        	<version release="116" version="1.0">
+        		<entry>Fix for suwizard view, placement of button for new instance.</entry>
+        	</version>
+        	<version release="117" version="1.0">
+        		<entry>Additional fixes for certification.</entry>
+        	</version>
+        	<version release="118" version="1.0">
+        		<entry>Fix for multi-subscription logic by adding tenantName property to tenant.php and updating all references using globals.DESC to use new property.</entry>
+        	</version>
+        	<version release="119" version="1.0">
+        		<entry>Fixes for multiple subscription.</entry>
+        	</version>
+        	<version release="120" version="1.0">
+        		<entry>Fix to select all on object storage and upload curl output</entry>
+        	</version>
+        	<version release="121" version="1.0">
+        		<entry>Request by HP to have without documentation. </entry>
+        	</version>
+        	<version release="122" version="1.0">
+        		<entry>Correction for log statement in tenant and ui navigation references.</entry>
+        	</version>
+        	<version release="123" version="1.0">
+        		<entry>Some updates to html</entry>
+        	</version>
+        	<version release="124" version="1.0">
+        		<entry>Updated provider guide with additional pip command and removed un-used html from nav tree reference.</entry>
+        	</version>
+        	<version release="125" version="1.0">
+        		<entry>Updated provider's guide.</entry>
+        	</version>
+        	<version release="126" version="1.0">
+        		<entry>Updated provider's Guide. Certified by parallels.</entry>
+        	</version>
+        	<version release="127" version="1.0">
+        		<entry>Python client -insecure temporary tweak. </entry>
+        	</version>
+        	<version release="128" version="1.0">
+        		<entry>Update for ssl switching in globals</entry>
+        	</version>
+        	<version release="129" version="1.0">
+        		<entry>Fix to users.php for helion admin references. </entry>
+        	</version>
+        	<version release="130" version="1.0">
+        		<entry>Update to globals to handle optional use of ldap.</entry>
+        	</version>
+        	<version release="131" version="1.0">
+        		<entry>Added in additional error handling.</entry>
+        	</version>
+        	<version release="132" version="1.0">
+        		<entry>counters added</entry>
+        	</version>
+        	<version release="133" version="1.0">
+        		<entry>Fix ldap attributes in globals. </entry>
+        	</version>
+        	<version release="134" version="1.0">
+        		<entry>Testing counters.</entry>
+        	</version>
+        	<version release="135" version="1.0">
+        		<entry>Added flavors and counters.</entry>
+        	</version>
+        	<version release="136" version="1.0">
+        		<entry>Testing upgrade</entry>
+        	</version>
+        	<version release="137" version="1.0">
+        		<entry>Testing upgrade</entry>
+        	</version>
+        	<version release="138" version="1.0">
+        		<entry>Upgrade Test</entry>
+        	</version>
+        	<version release="141" version="1.0">
+        		<entry>Testing counters</entry>
+        	</version>
+        	<version release="142" version="1.0">
+        		<entry>Test</entry>
+        	</version>
+        	<version release="144" version="1">
+        		<entry>Finalization</entry>
+        	</version>
+        	<version release="150" version="1.0">
+        		<entry>Additional updates to counters. Addition of Flavors and Project Quotas. Fixes to suspension routines. </entry>
+        	</version>
+        	<version release="151" version="1.0">
+        		<entry>Adding the project quota checking feature</entry>
+        	</version>
+        	<version release="152" version="1.0">
+        		<entry>update type to 3.0</entry>
+        	</version>
+        </changelog>
+        <categories>
+    	   <category>Infrastructure/Management</category>
+    	</categories>
+        <languages>
+        	<language>en</language>
+        </languages>
+        <navigation id="pcp" label="Global Settings">
+        	<var name="globals" type-id="http://hp.com/helionglobals/2.0"/>
+        	<plugs-to id="http://www.aps-standard.org/ui/application"/>
+        	<item id="globals" label="Global Settings">
+        		<view id="globals" label="Global Settings">
+        			<view id="globals.edit" label="Global Settings">
+        				<controls>
+        					<cancel label="Cancel"/>
+        					<submit label="Save Changes"/>
+        				</controls>
+        			</view>
+</view>
+        	</item>
+        </navigation>
+        <navigation id="ccp" label="Helion OpenStack">
+        	<var name="tenant" type-id="http://hp.com/heliontenant/3.0"/>
+        	<plugs-to id="http://www.aps-standard.org/ui/service"/>
+        	<item id="users" label="Users">
+        		<view id="users" label="Users" src="ui/users.list.html">
+        			<view id="user.new-1" label="Step 1" src="ui/user.new-1.html">
+        				<controls>
+        					<cancel/>
+        					<next/>
+        				</controls>
+        			</view>
+        			<view id="user.new-2" label="Step 2" src="ui/user.new-2.html">
+        				<controls>
+        					<cancel/>
+        					<finish/>
+        				</controls>
+        			</view>
+        			<view id="users.view-edit" label="Modify User">
+        				<controls>
+        					<cancel/>
+        					<submit/>
+        				</controls>
+        				<var name="user" type-id="http://hp.com/users/1.0"/>
+        			</view>
+        		</view>
+        	</item>
+        	<item id="project" label="Projects">
+        		<view id="project" label="Projects" src="ui/project.html">
+        			<view id="project.new" label="Projects">
+        				<controls>
+        					<cancel/>
+        					<submit/>
+        				</controls>
+        			</view>
+        			<view id="project.quota" label="Project Quota" src="ui/project.quota.html">
+        				<controls>
+        					<cancel/>
+        					<submit/>
+        				</controls>
+        			</view>
+        		</view>
+        	</item>
+        	<item id="Flavors" label="Flavors">
+        		<view id="flavor" label="Flavors">
+        			<view id="flavor.new" label="Flavors">
+        				<controls>
+        					<cancel/>
+        					<submit/>
+        				</controls>
+        			</view>
+        		</view>
+        	</item>
+<item id="network" label="Networks">
+        		<view id="networks" label="Networks" src="ui/networks.html">
+        			<view id="network.new" label="Networks">
+        				<controls>
+        					<cancel/>
+        					<submit/>
+        				</controls>
+        			</view>
+        			<view id="subnet.new1" label="Subnets" src="ui/subnet.new1.html">
+        				<controls>
+        					<cancel/>
+        					<submit/>
+        				</controls>
+        			</view>
+        		</view>
+        	</item>
+<item id="security" label="Policies">
+
+        		<view id="securities" label="Policies" src="ui/securities.html">
+        			<view id="policy.new" label="Security Group">
+        				<controls>
+        					<cancel/>
+        					<submit/>
+        				</controls>
+        			</view>
+        			<view id="securityrule.new1" label="Security Rule">
+        				<controls>
+        					<cancel/>
+        					<submit/>
+        				</controls>
+        			</view>
+        		</view>
+</item>
+<item id="images" label="Images/Snapshots">
+        		<view id="images" label="Images">
+        		</view>
+        	</item>
+        	<item id="storage" label="Storage">
+        		<view id="objectstorage.pcp" label="Storage" src="ui/objectstorage.pcp.html">
+        		</view>
+        	</item>
+        </navigation>
+        <navigation id="suwizard">
+        	<view id="suwizard.new" label="Add New Helion User" src="ui/suwizard.new.html">
+        		<var name="tenant" type-id="http://hp.com/heliontenant/3.0"/>
+        		<plugs-to id="http://www.aps-standard.org/ui/service/suwizard.new"/>
+        	</view>
+        	<view id="suwizard.overview" label="Helion OpenStack" src="ui/suwizard.overview.html">
+        		<plugs-to id="http://www.aps-standard.org/ui/service/suwizard.overview"/>
+        	</view>
+        	<view id="suservice.view" label="Helion">
+        		<plugs-to id="http://www.aps-standard.org/ui/service/suservice.view"/>
+        	</view>
+        </navigation>
+        <navigation id="mycp" label="Helion OpenStack">
+        	<var name="enduser" type-id="http://hp.com/users/1.0"/>
+        	<plugs-to id="http://www.aps-standard.org/ui/user"/>
+        	<item id="mycp-main" label="Instances">
+        		<view id="mycp-main" label="Instances">
+        			<view id="instance.new1" label="Instances">
+        				<controls>
+        					<cancel/>
+        					<submit/>
+        				</controls>
+        			</view>
+        			<group id="security">
+        				<view id="security.new1" label="Security">
+        					<controls>
+        						<cancel/>
+        						<next/>
+        					</controls>
+        				</view>
+        				<view id="security.new2" label="Security">
+        					<controls>
+        						<cancel/>
+        						<submit/>
+        					</controls>
+        				</view>
+        			</group>
+        			</view>
+        		</item>
+        	<item id="Storages" label="Object Storage">
+        		<view id="storages" label="Object Storage" src="ui/storages.html">
+        			<view id="storagecontainer.new1" label="Storage">
+        				<controls>
+        					<cancel/>
+        					<submit/>
+        				</controls>
+        			</view>
+        			<view id="storageobject.new1" label="Storage">
+        				<controls>
+        					<cancel/>
+        					<submit/>
+        				</controls>
+        			</view>
+        			<view id="object.upload" label="Storage">
+        				<controls>
+        					<cancel/>
+        					<submit/>
+        				</controls>
+        			</view>
+</view>
+        	</item>
+        	<item id="snapshots" label="Images/Snapshots">
+        		<view id="snapshots" label="Images/Snapshots">
+        			<view id="snapshot.new1" label="Create Snapshot" src="ui/snapshot.new1.html">
+        				<controls>
+        					<cancel/>
+        					<submit/>
+        				</controls>
+        			</view>
+        		</view>
+        	</item>
+</navigation>
+    </presentation>
+    <license-agreement must-accept="true">
+	<free/>
+	<text>
+		<name>End-User License Agreement</name>
+		<file>http://opensource.org/licenses/bsd-license</file>
+	</text>
+    </license-agreement>
+    <upgrade match="version =eq= 1.0,release =lt= 152"/>
+    <service id="globals">
+		<schema path="schemas/globals.schema.gen"/>
+    	<code engine="php" path="scripts/globals.php"/>
+    	<presentation>
+    		<name>Helion Application Settings</name>
+    		<summary>HP Helion OpenStack Application Settings</summary>
+    		<infolinks>
+    			<link class="deployment-guide" href="file:///doc/HPHelionOpenStackProvidersGuide.pdf">Deployment Guide</link>
+    			<link class="support" href="file:///doc/HPHelionOpenStackSubscribersGuide.pdf">Subscribers Guide</link>
+    		</infolinks>
+    	</presentation>
+    </service>
+	<service id="tenant">
+<schema path="schemas/tenant.schema.gen"/>
+<code engine="php" path="scripts/tenant.php"/>
+		<presentation>
+			<name>Helion Tenant</name>
+			<summary>Helion Tenant</summary>
+		</presentation>
+	</service>
+		<service id="users">
+<schema path="schemas/users.schema.gen"/>
+<code engine="php" path="scripts/users.php"/>
+		<presentation>
+			<name>Helion User</name>
+			<summary>Helion User</summary>
+		</presentation>
+	</service>
+<service id="project">
+	<schema path="schemas/project.schema.gen"/>
+<code engine="php" path="scripts/project.php"/>
+	<presentation>
+		<name>Helion Project</name>
+		<summary>Helion Project</summary>
+	</presentation>
+</service>
+<service id="instance">
+		<schema path="schemas/instance.schema.gen"/>
+<code engine="php" path="scripts/instance.php"/>
+		<presentation>
+			<name>Helion Virtual Instance</name>
+			<summary>Helion Virtual Instance</summary>
+		</presentation>
+</service>
+	<service id="network">
+		<schema path="schemas/network.schema.gen"/>
+<code engine="php" path="scripts/network.php"/>
+		<presentation>
+			<name>Helion Network</name>
+			<summary>Helion Network</summary>
+		</presentation>
+	</service>
+	<service id="subnet">
+		<schema path="schemas/subnet.schema.gen"/>
+<code engine="php" path="scripts/subnet.php"/>
+		<presentation>
+			<name>Helion Subnet</name>
+			<summary>Helion Subnet</summary>
+		</presentation>
+	</service>
+	<service id="securitypolicy">
+		<schema path="schemas/securitygroup.schema.gen"/>
+<code engine="php" path="scripts/securitygroup.php"/>
+		<presentation>
+			<name>Security Policy</name>
+			<summary>Security Policy (Group)</summary>
+		</presentation>
+	</service>
+	<service id="securityrule">
+		<schema path="schemas/securityrule.schema.gen"/>
+<code engine="php" path="scripts/securityrule.php"/>
+		<presentation>
+			<name>Security Rule</name>
+			<summary>Security Rule</summary>
+		</presentation>
+	</service>
+	<service id="objectstoragecontainer">
+		<schema path="schemas/objectstorecontainer.schema.gen"/>
+<code engine="php" path="scripts/objectstorecontainer.php"/>
+		<presentation>
+			<name>Obect Storage Container</name>
+			<summary>A Container for Object Storage</summary>
+		</presentation>
+	</service>
+	<service id="objectstoreobject">
+		<schema path="schemas/objectstoreobject.schema.gen"/>
+<code engine="php" path="scripts/objectstoreobject.php"/>
+		<presentation>
+			<name>Storage Object</name>
+			<summary>An Object within the Storage Container (i.e. a file)</summary>
+		</presentation>
+	</service>
+	<service id="instancetask">
+		<schema path="schemas/instancetask.schema.gen"/>
+<code engine="php" path="scripts/instancetask.php"/>
+		<presentation>
+			<name>Instance Task</name>
+			<summary>Provides for Synch of Instance State</summary>
+		</presentation>
+	</service>
+	<service id="flavor">
+		<schema path="schemas/flavor.schema.gen"/>
+<code engine="php" path="scripts/flavor.php"/>
+		<presentation>
+			<name>Flavor</name>
+			<summary>A flavor</summary>
+		</presentation>
+	</service>
+</application>

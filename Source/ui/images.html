@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script type="text/javascript" src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+<script>
+require([
+	"aps/ResourceStore",
+	"dojo/when",
+	"dijit/registry",
+	"aps/load",
+	"aps/Message",
+	"aps/Memory",
+	"./errorhandler.js",
+	"aps/ready!"
+],
+	function (Store, when, registry, load, Message, Memory, errorhandler) {
+
+	var storeImages = new Store({
+		target : "/aps/2/resources/" + aps.context.vars.tenant.aps.id + "/getListImagesByProject",
+		idProperty: "name"
+	});
+	load(
+		["aps/PageContainer", { id: "page" },
+			[["aps/Grid",{
+				id:"gridImages",
+				store:  storeImages,
+				errorHandler: errorhandler,
+				sort: { attribute: "name", descending: true },
+				columns: [
+					{ field: "name", name: "Image", filter:{"title":"Image"}},
+					{ field: "projectName", name: "Project", filter:{"title":"Project"}}
+				]}
+		]]]).then(function(){
+			//sort the table based on the name field
+			var g = registry.byId("gridImages");
+			g.set("sort", { attribute: "name", descending: false });
+	});
+});
+</script>
+</head>
+<body>
+</body>
+</html>

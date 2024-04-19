@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script type="text/javascript" src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+<script type="text/javascript" src="/aps/2/ui/runtime/client/3rd-party/jquery/jquery.js"></script>
+<script>
+require([
+	"aps/load",
+	"dojo/when",
+	"aps/ResourceStore",
+	"aps/Output",
+	"aps/Memory",
+	"dojox/mvc/at",
+	"aps/Switch",
+	"dijit/registry",
+	"dojox/mvc/getStateful",
+	"dojo/promise/all",
+	"aps/xhr",
+	"aps/Message",
+	"aps/WizardData",
+	"aps/ready!"
+],
+function(load, when, Store, Output, Memory, at, Switch, registry, getStateful,all, xhr, Message, wizardData) {
+
+	//define the store to get the list of instances
+	var instancestore  = new Store({
+		target:	"/aps/2/resources/" + aps.context.vars.enduser.aps.id + "/getVMS",
+		idProperty: "aps.id"
+	});
+
+	//define the store to get the list of projects associated with the user
+	var projs  = new Store({
+		target:	"/aps/2/resources/" + aps.context.vars.enduser.aps.id + "/getProjects",
+		idProperty: "aps.id"
+	});
+	
+	//var for projects. no projects, no instance create
+	var projCount = 0;
+	
+	//part of workaround to get aps id of an item using button onclick
+	//feature request APS-17372 will allow getbyid function 
+    var scanForActiveItem = function(elem) {
+        var p = elem.parentNode;
+        while(p && !p.id.match(/^aps_ActiveItem/i)) { p = p.parentNode; }
+        return p || elem;
+    };
+
+    //function to drop quotes from some of the function returns coming from php
+    var cleanQuotes = function(inText){
+		var idx = "\"";
+		if(inText !== undefined){
+			if(inText.charAt(0) == idx){
+				inText = inText.substring(1);
+			}
+			if(inText.charAt(inText.length-1) == idx){
+				inText = inText.substring(0, (inText.length -1));
+			}
+		}
+		return inText;
+    };
+
+    //function for playing switcharoo with the state field
+    var switchStates = function(inWidget, val){
+		inWidget.description[2].set('value', val);
+		inWidget.description[1].set('visible', false);
+		inWidget.description[2].set('visible', true);
+	};
+	
+	//make sure we have projects assigned otherwise can't create instances
+	when(projs.query(), function(data){
+		projCount = data.length;
+	});
+	
+       //load the widgets
+	load(
+		["aps/PageContainer", { id: "page" },[
+			["aps/Container", [ //{title:"Container 1"}
+				["aps/Toolbar", [
+					["aps/ToolbarButton", { id: "newInstance", iconName: "./images/add.png", label: _('Add New Instance') }]
+				]]
+			]],
+			["aps/ActiveList",
+				{	id: "activeList",
+					store: instancestore
+				},
+				[["aps/ActiveItem", {
+					id:"actItem",
+					iconName: "./images/hardware-node.png",
+					title: at("rel:", "instancename"),
+					description: [
+						new Output({
+							id: "curinstance",
+							visible: false,
+							label: "x",
+							value: at("rel:aps", "id")
+						}),
+                        new Output({
+							innerHTML: "State: ${value}",
+							value: at("rel:", "instancestatus"),
+							"class": "summary-item"
+                        }),
+                        new Output({
+							visible: false,
+							innerHTML: "Current State: ${value}",
+							value: "",
+							"class": "summary-item"
+                         })
+					]
+				},
+				[["aps/Container", {cols: 2},[
+					["aps/Container", {cols:0},[
+						["aps/FieldSet", {title: "Server Information"},
+							[["aps/Output", {
+								label: "Image",
+								value: at("rel:", "image")
+							}],
+							["aps/Output", {
+								label: "Flavor",
+								value: at("rel:", "flavor")
+							}],
+							["aps/Output", {
+								label: "Ram in MB",
+								value: at("rel:", "ram")
+							}],
+							["aps/Output", {
+								label: "Disk in GB",
+								value: at("rel:", "disk")
+							}],
+							["aps/Output", {
+								label: "Number of CPUs",
+								value: at("rel:", "cpu")
+							}]
+					]] //end fieldset
+				]], //end inner first container
+			["aps/Container", {cols:0},[
+				["aps/FieldSet", {title: "Network Information"},[
+					["aps/Output", {
+						label:  "Address(es)",
+						escapeHTML: false,
+						value: at("rel:", "networkAddresses").
+						direction(at.from).transform({
+							format : function (value){
+								var x = JSON.parse(value);
+								var y = "";
+								for(var z=0;z<x.length;z++){
+									for(var c=0;c<x[z].length;c++){
+										if(c === 0){
+											y = y + "Network (" + x[z][c]+ ") : ";
+										}else{
+											y = y + x[z][c];
+										}
+									}
+									y = y + "</br>";
+								}
+								return y;
+							}
+						})
+					}]
+				]] //end fieldset
+			]] //end inner second container
+		]], //end container
+		["aps/Toolbar", {title: "Configuration"},[
+			["aps/ToolbarButton",
+				{
+					label: _('Soft Reset'),
+					iconName: "./images/reset.png",
+
+					onClick: function(e) {
+						var page = registry.byId("page"),
+						messages = page.get("messageList"),
+						self = this;
+						var activeitemApsId = registry.getEnclosingWidget(scanForActiveItem(e.target));
+						//console.log("APS ID OF INSTANCE:: " + activeitemApsId.description[0].value);
+						var url1 = "/aps/2/resources/" + aps.context.vars.enduser.aps.id + "/softresetVM";
+						xhr(url1, {	method: "POST",
+							data: JSON.stringify(
+								{"aps":{"id": activeitemApsId.description[0].value}}
+												)
+						}).then(function(res){
+							var x = registry.getEnclosingWidget(scanForActiveItem(e.target));
+							switchStates(x, "Resetting (Soft)");
+							messages.removeAll();
+							messages.addChild(new Message({ description: res, type: "info" }));
+							self.cancel();
+						});
+					}
+				}],
+			["aps/ToolbarButton",{
+				label: _('Hard Reset'),
+				iconName: "./images/reset.png",
+				onClick: function(e) {
+					var page = registry.byId("page"),
+					messages = page.get("messageList"),
+					self = this;
+					var activeitemApsId = registry.getEnclosingWidget(scanForActiveItem(e.target));
+					//console.log("APS ID OF INSTANCE:: " + activeitemApsId.description[0].value);
+					var url1 = "/aps/2/resources/" + aps.context.vars.enduser.aps.id + "/hardresetVM";
+					xhr(url1, {	method: "POST",
+						data: JSON.stringify(
+							{"aps":{"id": activeitemApsId.description[0].value}}
+						)
+					}).then(function(res){
+						var x = registry.getEnclosingWidget(scanForActiveItem(e.target));
+						switchStates(x, "Resetting (Hard)");
+						messages.removeAll();
+						messages.addChild(new Message({ description: res, type: "info" }));
+						self.cancel();
+					});
+				}
+			}],
+			["aps/ToolbarButton",{
+				label: _('Start'),
+				iconName: "./images/resume.png",
+				onClick: function(e) {
+					var page = registry.byId("page"),
+					messages = page.get("messageList"),
+					self = this;
+					var activeitemApsId = registry.getEnclosingWidget(scanForActiveItem(e.target));
+										//console.log("APS ID OF INSTANCE:: " + activeitemApsId.description[0].value);
+										///this.set('label',activeitemApsId.description[0].value);
+					var url1 = "/aps/2/resources/" + aps.context.vars.enduser.aps.id + "/startVM";
+					xhr(url1, {	method: "POST",
+						data: JSON.stringify(
+							{"aps":{"id": activeitemApsId.description[0].value}}
+						)
+					}).then(function(res){
+						var x = registry.getEnclosingWidget(scanForActiveItem(e.target));
+						switchStates(x, "Starting");
+						messages.removeAll();
+						messages.addChild(new Message({ description: res, type: "info" }));
+						self.cancel();
+					});
+				}
+			}],
+			["aps/ToolbarButton",{
+				label: _('Stop'),
+				iconName: "./images/stop.png",
+				onClick: function(e) {
+					var page = registry.byId("page"),
+					messages = page.get("messageList"),
+					self = this;
+					var activeitemApsId = registry.getEnclosingWidget(scanForActiveItem(e.target));
+					//console.log("APS ID OF INSTANCE:: " + activeitemApsId.description[0].value);
+					///this.set('label',activeitemApsId.description[0].value);
+					var url1 = "/aps/2/resources/" + aps.context.vars.enduser.aps.id + "/stopVM";
+					xhr(url1, {	method: "POST",
+						data: JSON.stringify(
+								{"aps":{"id": activeitemApsId.description[0].value}}
+						)
+					}).then(function(res){
+						var x = registry.getEnclosingWidget(scanForActiveItem(e.target));
+						switchStates(x, "Shutting down");
+						messages.removeAll();
+						messages.addChild(new Message({ description: res, type: "info" }));
+						self.cancel();
+					});
+				}
+			}],
+			["aps/ToolbarButton", {
+				label: _('Delete Instance'),
+				iconName: "./images/delete.png",
+				onClick: function(e) {
+					var page = registry.byId("page"),
+					messages = page.get("messageList"),
+					self = this;
+					var activeitemApsId = registry.getEnclosingWidget(scanForActiveItem(e.target));
+					//console.log("APS ID OF INSTANCE:: " + activeitemApsId.description[0].value);
+					///this.set('label',activeitemApsId.description[0].value);
+					var url1 = "/aps/2/resources/" + aps.context.vars.enduser.aps.id + "/deleteVM";
+					xhr(url1, {	method: "POST",
+						data: JSON.stringify(
+							{"aps":{"id": activeitemApsId.description[0].value}
+						}
+						)
+					}).then(function(res){
+						messages.removeAll();
+						messages.addChild(new Message({ description: res, type: "info" }));
+						self.cancel();
+						var page = registry.byId("activeList");
+						page.refresh();
+					}); //end then
+				}//end onclick
+			}], //end button
+			["aps/ToolbarButton", {
+				id: "createSnapshot",
+				label:"Create Snapshot",
+				iconName: "./images/backup-small.png",
+				onClick: function(e){
+					var page = registry.byId("page");
+					var messages = page.get("messageList");
+					var self = this;
+					var activeitemApsId = registry.getEnclosingWidget(scanForActiveItem(e.target));
+					
+					if(activeitemApsId.description[0].value === ""){
+						messages.addChild(new Message({ description: "Can't determine the instance identifier. Please contact the system administrator!", type: "error" }));
+						self.cancel();
+					}else{
+						messages.removeAll();
+						wizardData.put({apsid: activeitemApsId.description[0].value});
+						aps.apsc.gotoView("snapshot.new1");
+					}
+				}
+			}],
+			["aps/ToolbarButton", {
+				label: "Check State",
+				iconName:"./images/refresh.png",
+				onClick: function(e){
+					var page = registry.byId("page"),
+					messages = page.get("messageList"),
+					self = this;
+					messages = "";
+					var activeitemApsId = registry.getEnclosingWidget(scanForActiveItem(e.target));
+					//console.log("APS ID OF INSTANCE:: " + activeitemApsId.description[0].value);
+					var url1 = "/aps/2/resources/" + aps.context.vars.enduser.aps.id + "/getVmState";
+					xhr(url1, {	method: "POST",
+						data: JSON.stringify(
+							{"aps":{"id": activeitemApsId.description[0].value}
+						}
+						)
+					}).then(function(res){
+						var x = registry.getEnclosingWidget(scanForActiveItem(e.target));
+						switchStates(x, cleanQuotes(res));
+						self.cancel();
+					});
+					}
+			}]
+		]]//end toolbar
+		]]//end active item
+	]] //end active list
+	]]
+	).then(function(){
+			
+		//action behind the add instance button
+		registry.byId("newInstance").on("click", function(){
+			if(projCount===0){
+				var self = this;
+				var page = registry.byId("page"),
+				messages = page.get("messageList");
+				self.cancel();
+				messages.addChild(new Message({description:"You need to add a project prior to creating an instance", type:"error"}));
+				return;
+			}
+			aps.apsc.gotoView("instance.new1");
+		});
+	});
+});
+</script>
+</head>
+<body>
+</body>
+</html>

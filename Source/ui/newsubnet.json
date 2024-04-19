@@ -1,0 +1,21 @@
+{
+    "aps": {
+        "type": "http://hp.com/helionsubnet/1.0"
+    },
+    "network": {
+    	"aps":{
+    		"link":"strong",
+    		"id":""
+    		}
+    	},
+    "subnetName":"",
+    "networkAddress":"",
+    "ipVersion":"",
+    "gatewayIp":"",
+    "gatewayDisabled":"",
+    "dhcpEnabled":"",
+    "allocationPools":"",
+    "dnsServers":"",
+    "hostRoutes":""
+
+}

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+	<script type="text/javascript" src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+	<script>
+	require([
+		"aps/Memory",
+		"dojo/when",
+		"dojo/promise/all",
+		"aps/ResourceStore",
+		"dijit/registry",
+		"aps/PageContainer",
+		"dojox/mvc/getStateful",
+		"aps/load",
+		"aps/ready!"
+		], function (Memory, when, all, Store, registry, PageContainer, getStateful, load) {//load the page and widgets and stuff
+		
+		load(
+			["aps/PageContainer", { id: "pageMain" },[
+				["aps/Container", {cols:0, title:""},[
+					["aps/FieldSet",[
+						["aps/Output", {
+							label: "Note:",
+							value: "This page is not functional in this release.   Future Block and File Storage functions will be included here."
+						}]
+					]]//end fieldset
+				]]//end container
+			]]//end page container
+		).then(function(){
+		});
+	});
+</script>
+</head>
+<body>
+</body>
+</html>

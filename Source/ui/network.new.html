@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+<script>
+	require([
+		"aps/xhr",
+		"dojo/promise/all",
+		"aps/load",
+		"aps/Memory",
+		"aps/ResourceStore",
+		"dojo/when",
+		"dijit/registry",
+		"aps/parser",
+		"dojox/mvc/getStateful",
+		"dojox/mvc/getPlainValue",
+		"aps/Message",
+		"dojo/_base/lang",
+		"dojox/mvc/at",
+		"dojo/text!./newnetwork.json",
+		"aps/ready!"
+	], function (xhr, all, load, Memory, Store, when, registry, parser, getStateful, getPlainValue, Message, lang, at, newnetwork) {
+				
+		//define current selected project
+		var currproj = "";
+		var store = new Store({ target: "/aps/2/resources" });
+		//console.log(aps.context.vars.tenant.aps.id);
+		var nmodel = getStateful(lang.mixin(window.model, getStateful(JSON.parse(newnetwork))));
+		
+		//define the store to get the list of projects associated with the user
+		var projs  = new Store({
+			target:	"/aps/2/resources/" + aps.context.vars.tenant.aps.id + "/projects",
+			idProperty: "aps.id"
+			});
+		var proja = [];
+		//drop in an empty value
+		proja.push({"aps":{"id":""}, "projectName":""});
+
+		//define object to hold the projs
+		var projectList = new Memory({data: [{"aps":{"id":""},"projectName":""}], idProperty: "aps.id" });
+		//query the projects and push each into the array
+		projs.query().forEach( function(data){
+			//finish loading the array
+			projectList.add({aps:{id:data.aps.id},projectName:data.projectName});
+		}).then(function(){
+			
+			//load the page and widgets and stuff
+			load(["aps/PageContainer", { id: "pageMain" },[
+					["aps/Container", {cols:0, title:"Create New Network"},[
+						["aps/FieldSet",[
+							["aps/TextBox", {
+								required: true,
+								label: "Network Name",
+								id: "txtName",
+								value: nmodel.networkName
+							}]
+							,
+							["aps/Select", {
+								label:"Select Project",
+								required: true,
+		                        store: projectList,
+		                        labelAttr: "projectName",
+		                        id: "selProj"
+		                    }]
+							,
+							["aps/CheckBox",{
+								id:"selAdminState",
+								required: true,
+								//description: "Admin State"
+								label: "Admin State"
+							}],
+							["aps/CheckBox",{
+								id:"selShared",
+								name: "selShared",
+								required: true,
+								//description: "Shared",
+								label: "Shared"
+						     
+							}],
+							["aps/CheckBox",{
+								id:"selExtNetwork",
+								required: true,
+								//description: "External Network"
+								label: "External Network"
+							}]
+						]]//end fieldset
+					]]//end container
+				]]//end page container
+			).then(function(){
+
+			//register listener for project selection field changes
+			registry.byId("selProj").on("change", function() {
+				var e = registry.byId("selProj");
+				currproj = e.value;
+				//console.log("Selected Project:: " + e.getchecked);
+			});
+			
+			//submit action
+			aps.app.onSubmit = function() {
+				console.log("Submit - request");
+				var page = registry.byId("pageMain"),
+				messages = page.get("messageList");
+
+				if (!page.validate()) {
+					console.log("Canceled - Not Validated");
+
+					aps.apsc.cancelProcessing();
+					return;
+				}
+				else {
+					console.log("Submit - Validated");
+					var er = ""; //tmp error message
+					
+					nmodel.networkName = registry.byId("txtName").value;
+					var astate = registry.byId("selAdminState");
+					var extnet = registry.byId("selExtNetwork");
+					var nshared = registry.byId("selShared");
+					//convert true/false as needed
+					if(astate.checked){
+						nmodel.adminstate = "true";
+					}else{
+						nmodel.adminstate = "false";
+					}
+					if(extnet.checked){
+						nmodel.externalnetwork = "true";
+					}else{
+						nmodel.externalnetwork = "false";
+					}
+					if(nshared.checked){
+						nmodel.shared = "true";
+					}else{
+						nmodel.shared = "false";
+					}
+
+					// validate the project selection
+					if(currproj === ""){
+						er = "Please select a project!";
+					}else{
+						//add it to the model
+						nmodel.project.aps.id = currproj;
+					}
+					console.log("Name: " + nmodel.networkName + " Desc: " + nmodel.project.aps.id);
+					when(
+						store.put(getPlainValue(nmodel)),
+						function() {
+							aps.apsc.gotoView("networks");
+						},
+						function(err) {
+							aps.apsc.cancelProcessing();
+							messages.removeAll();
+							messages.addChild(new Message({description: err, type: "error"}));
+						}
+					);
+					}//end else
+				}; //end onsubmit
+
+				aps.app.onCancel = function() {
+					aps.apsc.gotoView("networks");
+				};
+			
+			});
+
+		});
+	});
+</script>
+</head>
+<body>
+</body>
+</html>

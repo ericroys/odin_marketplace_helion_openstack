@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<script src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+
+	<script>
+	require([
+		"aps/load",
+		"aps/ResourceStore",
+		"dojo/when",
+		"dijit/registry",
+		"aps/parser",
+		"dojox/mvc/getStateful",
+		"dojox/mvc/getPlainValue",
+		"aps/Message",
+		"dojo/_base/lang",
+		"dojox/mvc/at",
+		"dojo/text!./newproject.json",
+		"aps/ready!"
+		], function (load, Store, when, registry, parser, getStateful, getPlainValue, Message, lang, at, newproject) {
+			
+			var store = new Store({ target: "/aps/2/resources" });
+			//console.log(aps.context.vars.tenant.aps.id);
+			window.model = getStateful(lang.mixin(window.model, getStateful(JSON.parse(newproject))));
+			
+			//load the page and widgets and stuff
+			load(["aps/PageContainer", { id: "pageContainer" },[
+				["aps/Container", {cols:0, title:"Create New Project"},[
+					["aps/FieldSet",[
+					
+					["aps/TextBox", {
+						required: true,
+						label: "Helion Project Name",
+						id: "projectName",
+						value: window.model.projectName
+					}],
+					["aps/TextBox", {
+						required: true,
+						label: "Description",
+						id: "description",
+						value: window.model.description
+					}]
+				]]
+				]]
+			]]
+			).then(function(){
+
+				aps.app.onSubmit = function() {
+				var page = registry.byId("pageContainer"),
+				messages = page.get("messageList");
+
+				if (!page.validate()) {
+					//console.log("Canceled - Not Validated");
+
+					aps.apsc.cancelProcessing();
+					return;
+				}
+				else {
+					//console.log("Submit - Validated");
+					//console.log("TENANT ID PRE: " + aps.context.vars.tenant.aps.id);
+					window.model.heliontenant.aps.id = aps.context.vars.tenant.aps.id;
+					window.model.heliontenant.aps.href = "/aps/2/resources/" + aps.context.vars.tenant.aps.id;
+					window.model.projectName = registry.byId("projectName").value;
+					window.model.description = registry.byId("description").value;
+					//console.log("TENANT ID POST: " + model.heliontenant.aps.id);
+					//console.log("Name: " + window.model.projectName + " Desc: " + window.model.description);
+					when(
+						store.put(getPlainValue(window.model)),
+						function() {
+							aps.apsc.gotoView("project");
+						},
+						function(err) {
+							aps.apsc.cancelProcessing();
+							messages.removeAll();
+							messages.addChild(new Message({description: err, type: "error"}));
+						}
+					);
+				}
+			};
+
+			aps.app.onCancel = function() {
+				aps.apsc.gotoView("project");
+			};
+		});
+	});
+</script>
+</head>
+<body>
+</body>
+</html>

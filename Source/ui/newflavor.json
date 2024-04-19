@@ -1,0 +1,17 @@
+{
+    "aps": {
+        "type": "http://hp.com/flavor/1.0"
+    },
+    "flavorName": "",
+    "cpus": 1,
+    "ram": 1024,
+    "rootdisk": 10,
+    "ephemeraldisk": 0,
+    "swapdisk": 0,
+    "heliontenant": {
+        "aps": {
+            "link": "strong",
+            "id": ""
+        }
+    }
+}

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+<script>
+require([
+	"aps/load",
+	"aps/ResourceStore",
+	"dojo/when",
+	"dijit/registry",
+	"aps/parser",
+	"dojox/mvc/getStateful",
+	"dojox/mvc/getPlainValue",
+	"aps/Message",
+	"dojo/_base/lang",
+	"dojox/mvc/at",
+	"./errorhandler.js",
+	"aps/ready!"
+],
+function (load, Store, when, registry, parser, getStateful, getPlainValue, Message, lang, at, errorhandler) {
+
+	var store = new Store({ target: "/aps/2/resources/" });
+	store.get(aps.context.vars.globals.aps.id).then(function(modelSaved) {
+	window.model = getStateful(lang.mixin(window.model, getStateful(modelSaved)));
+	
+    //function for playing switcharoo with the ldap fields
+    var switchStates = function(val){
+		var ip, usr, pass, dc1, dc2;
+		ip = registry.byId("LDAPIP");
+			ip.set("disabled", !val);
+			ip.set("required",val);
+		usr = registry.byId("LDAPUSER");
+			usr.set("disabled",!val);
+			usr.set("required",val);
+		pass = registry.byId("LDAPPASS");
+			pass.set("disabled",!val);
+			pass.set("required",val);
+		dc1 = registry.byId("DC1");
+			dc1.set("disabled",!val);
+			dc1.set("required",val);
+		dc2 = registry.byId("DC2");
+			dc2.set("disabled",!val);
+			dc2.set("required",val);
+		if(!val){
+			ip.set("value", "");
+			usr.set("value", "");
+			pass.set("value", "");
+			dc1.set("value", "");
+			dc2.set("value", "");
+		}
+	};
+		
+	//load the page and widgets and stuff
+	load(
+		["aps/PageContainer", { id: "pageContainer" },[
+			["aps/Container", {cols:0, title:"Global Settings"},[
+				["aps/FieldSet",[
+					["aps/TextBox", {
+						label: "Helion Instance Description",
+						id: "HELIONDESC",
+						value: at(window.model, 'HELIONDESC'),
+						disabled: true
+					}],
+					["aps/TextBox", {
+						required: true,
+						label: "Helion EndPoint Server",
+						id: "HELIONIP",
+						value: at(window.model, 'HELIONIP')
+					}],
+					["aps/Select", {
+						id: "selProtocol",
+						required: true,
+						title: "Connection Protocol",
+						value: at(window.model, 'helionProtocol'),
+						options: [ { label: "Http", value: "Http" },
+				                   { label: "SSL-Insecure", value: "SSL-Insecure", selected: true },
+				                   { label: "SSL", value: "SSL"} ]
+					}],
+					["aps/TextBox", {
+						required: true,
+						label: "Helion Admin User",
+						id: "HELIONUSER",
+						value: at(window.model, 'HELIONUSER')
+					}],
+					["aps/Password", {
+						required: true,
+						label: "Helion Admin Password",
+						id: "HELIONPASS",
+						value: at(window.model, 'HELIONPASS')
+					}],
+					/*["aps/CheckBox", {
+						required: true,
+						label: "Show Only OSA Provisioned Networks",
+						id: "ShowNets",
+						checked: at(window.model, 'showOsNetworks'),
+						value: at(window.model, 'showOsNetworks')
+					}],*/
+					["aps/CheckBox", {
+						required: true,
+						label: "LDAP Enabled",
+						id: "LDAPUSE",
+						checked: at(window.model, 'ldapEnabled'),
+						value: at(window.model, 'ldapEnabled')
+					}],
+					["aps/TextBox", {
+						required: true,
+						label: "LDAP IP Address",
+						id: "LDAPIP",
+						disabled: true,
+						value: at(window.model, 'LDAPIP')
+					}],
+					["aps/TextBox", {
+						required: true,
+						label: "LDAP Client User",
+						id: "LDAPUSER",
+						disabled: true,
+						value: at(window.model, 'LDAPUSER')
+					}],
+					["aps/Password", {
+						required: true,
+						label: "LDAP Client Password",
+						id: "LDAPPASS",
+						disabled: true,
+						value: at(window.model, 'LDAPPASS')
+					}],
+					["aps/TextBox", {
+						required: true,
+						label: "LDAP Domain Component 1",
+						id: "DC1",
+						disabled: true,
+						value: at(window.model, 'DC1')
+					}],
+					["aps/TextBox", {
+						required: true,
+						label: "LDAP Domain Component 2",
+						id: "DC2",
+						disabled: true,
+						value: at(window.model, 'DC2')
+					}]
+				]]
+				]]
+			]]
+	).then(function(){
+					
+		//make sure the ldap is toggled correctly after loading
+		var e = registry.byId("LDAPUSE");
+		switchStates(e.checked);
+			
+		//handle checkbox selection for ldap use
+		registry.byId("LDAPUSE").on("click", function() {
+			var e = registry.byId("LDAPUSE");
+			switchStates(e.checked);
+		});
+				
+		//handle submit action
+		aps.app.onSubmit = function() {
+			var page = registry.byId("pageContainer");
+			//,messages = page.get("messageList");
+
+			if (!page.validate()) {
+				aps.apsc.cancelProcessing();
+				return;
+			} else {
+				var e = registry.byId("LDAPUSE");
+				//var f = registry.byId("ShowNets");
+				//convert true/false as needed
+				if(e.checked){
+					window.model.ldapEnabled = "true";
+				}else{
+					window.model.ldapEnabled= "false";
+				}
+				//if(f.checked){
+				//	window.model.showOsNetworks = "true";
+				//}else{
+				//	window.model.showOsNetworks = "false";
+				//}
+				//update the controller
+				when(
+					store.put(getPlainValue(window.model)),
+					function() {
+						aps.apsc.gotoView("globals");
+					},
+					function(err) {
+						errorhandler(err);
+						aps.apsc.cancelProcessing();
+					}
+				);
+			}
+		};
+				
+		//handle cancel action
+		aps.app.onCancel = function() {
+			aps.apsc.gotoView("globals");
+		};
+		});
+	});
+});
+</script>
+</head>
+<body>
+</body>
+</html>

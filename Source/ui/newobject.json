@@ -1,0 +1,16 @@
+{
+    "aps": {
+        "type": "http://hp.com/helionobjectstoreobject/1.0"
+    },
+    "objectname": "",
+    "objectmetadataone":"",
+    "objectmetadatatwo":"",
+    "objectmetadatathree":"",
+    "objectstatus": "",
+    "container": {
+    	"aps":{
+    		"link":"strong",
+    		"id":""
+    		}
+    	}
+}

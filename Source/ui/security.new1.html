@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+<script>
+	require([
+		"aps/ResourceStore",
+		"dojo/when",
+		"dijit/registry",
+		"aps/parser",
+		"dojox/mvc/getStateful",
+		"dojox/mvc/getPlainValue",
+		"aps/Message",
+		"dojo/_base/lang",
+		"dojox/mvc/at",
+		"dojo/text!./newpolicy.json",
+		"aps/ready!"
+	], function (Store, when, registry, parser, getStateful, getPlainValue, Message, lang, at, newpolicy) {
+			
+		var store = new Store({ target: "/aps/2/resources" });
+		//console.log(aps.context.vars.tenant.aps.id);
+		window.model = getStateful(lang.mixin(window.model, getStateful(JSON.parse(newpolicy))));
+			
+		aps.app.onSubmit = function() {
+		//console.log("Submit - request");
+		var page = registry.byId("pageContainer"),
+		messages = page.get("messageList");
+		
+		if (!page.validate()) {
+			//console.log("Canceled - Not Validated");
+			aps.apsc.cancelProcessing();
+			return;
+		}
+		else {
+			//console.log("Submit - Validated");
+			//console.log("TENANT ID PRE: " + aps.context.vars.tenant.aps.id);
+			window.model.tenant.aps.id = aps.context.vars.tenant.aps.id;
+			window.model.tenant.aps.href = "/aps/2/resources/" + aps.context.vars.tenant.aps.id;
+			//console.log("Name: " + window.model.policyName + " Desc: " + window.model.policyDescription);
+			when(
+				store.put(getPlainValue(window.model)),
+				function() {
+					aps.apsc.gotoView("securities");
+					},
+					function(err) {
+						aps.apsc.cancelProcessing();
+						messages.removeAll();
+						messages.addChild(new Message({description: err, type: "error"}));
+						}
+					);
+			}
+		};
+		
+		aps.app.onCancel = function() {
+			aps.apsc.gotoView("securities");
+		};
+		
+		parser.parse();
+	});
+</script>
+</head>
+<body>
+	<script type="dojo/require">"dojox/mvc/at";</script>	
+	<div data-dojo-type="aps/PageContainer" id="pageContainer">
+	    <fieldset data-dojo-type="aps/FieldSet" title="Policy Create">
+		    <input id="name" data-dojo-type="aps/TextBox" required="required"  data-dojo-props="title:_('Security Policy Name'), value: at('model', 'policyName')" />
+			<input id="desc" data-dojo-type="aps/TextBox" required="required"  data-dojo-props="title:_('Description'), value: at('model', 'policyDescription')" />
+		</fieldset>
+	</div>
+</body>
+</html>

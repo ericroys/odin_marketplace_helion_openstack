@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+<script>	
+require([
+	"aps/Memory",
+	"dojo/when",
+	"dojo/promise/all",
+	"aps/ResourceStore",
+	"dijit/registry",
+	"aps/PageContainer",
+	"dojox/mvc/getStateful",
+	"aps/load",
+	"aps/Select",
+	"aps/Grid",
+	"dojox/mvc/getPlainValue",
+	"aps/Message",
+	"aps/xhr",
+	"dojo/_base/array",
+	"./errorhandler.js",
+	"aps/ready!"
+],
+function (Memory, when, all, Store, registry, PageContainer, getStateful, load, Select, Grid, getPlainValue, Message, xhr, arr, errorhandler) {
+	
+	//variable for current selected menu item (aps id of the user)
+	var curUser = "";
+	//variable for current selected project (aps id of project)
+	var curProj = "";
+	
+	var storeProj = new Store({
+		apsType:    "http://hp.com/project/3.0",
+		target:     "/aps/2/resources/" + aps.context.vars.tenant.aps.id + "/projects",
+		idProperty: "aps.id"
+	}),
+	storeUser = new Store({
+		apsType:	"http://hp.com/users/1.0",
+		target:	"/aps/2/resources/" + aps.context.vars.tenant.aps.id + "/users",
+		idProperty: "aps.id"
+	});
+	//vars for the drop list of users that can be associated to projects
+	var selUserList = new Memory({data: [{"aps":{"id":""},"helionusername":""}], idProperty: "aps.id" });
+	
+	//vars for the second table store. They are populated under condition of selection of the first table
+	var pusers = [];
+	var pUserList = new Memory({data:pusers,idProperty:"id"});
+			
+		
+	//get the list of user(s) that can be associated to a project then get the list of projects and load
+	//the page
+	when(storeUser.query().forEach( function(data){
+		selUserList.add({aps:{id:data.aps.id},helionusername:data.helionusername});
+	})).then(function(){
+		//query for existing projects to display in the grid
+		//when(storeProj.query(), function(object){
+
+		//load the page
+		load(["aps/PageContainer", { id: "page" },
+			[["aps/Grid", {
+				id: "grid",
+				store: storeProj,
+				selectionMode: 'single',
+				columns: [
+					{ field: 'projectName', name: 'Project Name' },
+					{ field: 'description', name: 'Description'},
+					{ field: 'status', name: 'Status'}
+				]},
+				[["aps/Toolbar", [
+					["aps/Container",{cols:2},[
+						["aps/Container",{title:"General"},[
+							["aps/ToolbarButton", { id: "newProject", iconName: "./images/add.png", label: _('Add') }],
+							["aps/ToolbarButton", { id: "deleteProject", iconName: "./images/delete.png", label: _('Delete'), requireItems: true }],
+							["aps/ToolbarButton", { id: "suspendProject", iconName: "./images/pause.png", label: _('Suspend'), requireItems: true }],
+							["aps/ToolbarButton", { id: "enableProject", iconName: "./images/resume.png", label: _('Enable'), requireItems: true }],
+							["aps/ToolbarButton", { id: "manageQuota", iconName: "./images/quota.png", label: _('Manage Quota'), requireItems:true}]
+						]],
+						[ "aps/Container", { title:"Membership", cols:2 },[
+							["aps/ToolbarButton", { id: "addUser", iconName:"./images/add.png", label: _('Add User'), requireItems: true }],
+								["aps/Select",{
+									id:"selectUser",
+									labelAttr:  "helionusername",
+									store: selUserList
+								}]
+						]]
+					]]
+				]]]
+			], //end of grid one
+			["aps/Container",{id:"assoc", title:"Users Associated to Selected Project"},[
+				["aps/Grid",{
+					selectionMode: 'multiple',
+					id:"gridUsers",
+					store:  pUserList,
+					columns: [
+						{ field: "helionusername", name: "User" }
+					]},
+					[["aps/Toolbar", [
+						["aps/ToolbarButton", { id: "deleteUser", iconName:"./images/delete.png", label: _('Remove User(s)'), requireItems: true }]
+					]]
+				]
+			]]
+		]
+		]]).then(function(){
+
+			var grid = registry.byId("grid"),
+			page = registry.byId("page"),
+			messages = page.get("messageList");
+			var gridy = registry.byId("gridUsers");
+			
+			//register listener for selection field changes
+			registry.byId("selectUser").on("change", function() {
+				var e = registry.byId("selectUser");
+				curUser = e.value;
+				//console.log("SELECTED:: " + e.value);
+			});
+
+			registry.byId("manageQuota").on("click", function() {
+				if(curProj === ""){
+					messages.removeAll();
+					messages.addChild(new Message({description: "Please select a project!", type: "warning"}));
+				}else{
+					aps.apsc.gotoView("project.quota", null, { objects: [{"aps":{"id":curProj}}]});
+				}
+			});
+			
+			//delete the project
+			registry.byId("deleteProject").on("click", function() {
+				var sel = grid.get("selectionArray"),
+					counter = sel.length,
+					self = this;
+				messages.removeAll();
+				//iterate and delet from the store
+				arr.forEach(sel, function(pid){
+					when(storeProj.remove(pid), function(){
+						sel.splice(sel.indexOf(pid),1);
+						grid.refresh();
+						if(--counter === 0){self.cancel();}
+					}, function(err){
+						errorhandler(err);
+						grid.refresh();
+						if(--counter === 0){self.cancel();}
+					});
+				});
+			});
+
+			//disable the project
+			registry.byId("suspendProject").on("click", function() {
+				messages.removeAll();
+
+				var sel = grid.get("selectionArray"),
+					count = 0,
+					self = this;
+				//iterate and call disable function
+				for(var i=0; i<sel.length; i++){
+					when(xhr("/aps/2/resources/" + sel[i] + "/disable",{method: "PUT"}), function(theoutput) {
+						messages.addChild(new Message({description: theoutput, type: "info"}));
+						grid.refresh();
+						self.cancel();
+					}, function(err){
+						errorhandler(err);
+						if(++count >= sel.length){
+							grid.refresh();
+							self.cancel();
+						}
+					});
+				}
+			});
+			
+			//enable the project
+			registry.byId("enableProject").on("click", function() {
+				
+				messages.removeAll();
+				var sel = grid.get("selectionArray"),
+					count = 0,
+					self = this;
+				//iterate and call enable function
+				for(var i=0; i<sel.length; i++){
+					when(xhr("/aps/2/resources/" + sel[i] + "/enable",{method: "PUT"}), function(theoutput) {
+						messages.addChild(new Message({description: theoutput, type: "info"}));
+						grid.refresh();
+											
+					}, function(err){
+						errorhandler(err);
+						if(++count >= sel.length){
+							grid.refresh();
+							self.cancel();
+						}
+					});
+				}
+			});
+			
+			//action behind the add project button
+			registry.byId("newProject").on("click", function(){
+				aps.apsc.gotoView("project.new");
+			});
+
+			//action behind the add user to project button
+			registry.byId("addUser").on("click", function(){
+				var self = this;
+				messages.removeAll();
+				if(curProj !== "" && curUser !== ""){
+					
+					var url1 = "/aps/2/resources/" + curUser + "/addUserToProject";
+					xhr(url1, {	method: "POST",
+							data: JSON.stringify(
+								{"project": curProj, "user": curUser, "test":curProj
+								}
+							)
+					}).then(function(res){
+						messages.addChild(new Message({description: res, type: "info"}));
+						var userList = new Store({
+							target:	"/aps/2/resources/" + curProj + "/projectusers"
+						});
+						//clear the project users array prior to load/re-load
+						pusers.splice(0,pusers.length);
+						//get the list of users for the selected project and re-pop the array
+						userList.query().forEach( function(data){
+							pusers.push({id:data.aps.id,helionusername:data.helionusername});
+							//console.log("id: " + data.aps.id + " :: User-> " + data.helionusername);
+							gridy.refresh();
+							self.cancel();
+						});
+					}).otherwise(errorhandler);
+				}else{
+					messages.addChild(new Message({description: "Please select a project and a user!", type: "error"}));
+					self.cancel();
+				}
+				return;
+			});
+			
+			//action behind the delete user from project button
+			registry.byId("deleteUser").on("click", function(){
+				var count = 0,
+                self = this,
+				selUsers = gridy.get("selectionArray");
+				messages.removeAll();
+					for(var i=0; i<selUsers.length; i++){
+						var url1 = "/aps/2/resources/" + selUsers[i] + "/removeUserFromProject";
+						xhr(url1, {	method: "POST",
+								data: JSON.stringify(
+									{"project": curProj, "user": selUsers[i]
+									}
+								)
+						}).then(function(res){
+							messages.addChild(new Message({description: res, type: "info"}));
+							//clear existing associated users array
+							pusers.splice(0,pusers.length);
+							var userList = new Store({
+								target:	"/aps/2/resources/" + curProj + "/projectusers"
+							});
+							userList.query().forEach( function(data){
+								pusers.push({id:data.aps.id,helionusername:data.helionusername});
+								//console.log("id: " + data.aps.id + " :: User-> " + data.helionusername);		
+							});
+						
+							gridy.refresh();
+							self.cancel();
+						
+						}, function(err){
+							errorhandler(err);
+							if(++count >= selUsers.length){
+								grid.refresh();
+								self.cancel();
+							}
+						});
+					}
+					return;
+				});
+			
+			//handle user selection of the first grid's table row so we can populate the 
+			//second table appropriately
+			grid.get("selectionArray").watchElements(function(){
+				curProj = this;
+				if(curProj!==""){
+					//store to query projects for the associated project users
+					var userList = new Store({
+						target:	"/aps/2/resources/" + curProj + "/projectusers"
+					});
+
+					//clear the project users array prior to load/re-load
+					pusers.splice(0,pusers.length);
+					gridy.refresh();
+									
+					//get the list of users for the selected project and re-pop the array
+					userList.query().forEach( function(data){
+						pusers.push({id:data.aps.id,helionusername:data.helionusername});
+						//console.log("id: " + data.aps.id + " :: User-> " + data.helionusername);
+						gridy.refresh();
+					});
+				}//endif
+			});
+		});
+	});
+});
+</script>
+</head>
+<body>
+</body>
+</html>

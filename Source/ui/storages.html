@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script type="text/javascript" src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+<script>
+	require([
+		"aps/Memory",
+		"aps/ResourceStore",
+		"dijit/registry",
+		"aps/PageContainer",
+		"dojox/mvc/getStateful",
+		"aps/load",
+		"aps/Select",
+		"aps/Grid",
+		"dojox/mvc/getPlainValue",
+		"aps/Message",
+		"aps/xhr",
+		"aps/ready!"
+		], function (Memory, Store, registry, PageContainer, getStateful, load, Select, Grid, getPlainValue, Message, xhr) {
+
+		//May need to change this as the ccp access restrictions
+		var storeContainers = new Store({
+			target : "/aps/2/resources/" + aps.context.vars.enduser.aps.id + "/getContainers"
+		});
+		var curContainer = "";
+		var cObjects = getStateful([]);
+		var cObjectList = new Memory({data:cObjects,idProperty:"name"});
+
+		//load the page
+		load(["aps/PageContainer", { id: "page" },[
+			["aps/Container", {cols:1},[
+				["aps/Container", {cols:0},[
+					["aps/Grid",{
+						selectionMode: 'single',
+						id:"gridContainers",
+						store:  storeContainers,
+						columns: [
+							{ field: "containername", name: "Container Name" },
+							{ field: "containermb", name: "" },
+							{ field: "containercount", name: "" }
+						]
+						},[
+							["aps/Toolbar", [
+								["aps/ToolbarButton", { id: "createContainer", iconName: "./images/add.png", label: _('Create Container') }],
+								["aps/ToolbarButton", { id: "deleteContainer", iconName: "./images/delete.png", label: _('Delete Container'), requireItems: true }]
+							]]
+						]], //end of grid one
+						["aps/Output", {
+							id: "urlTxt",
+							label: "",
+							value: "In order to upload an object to the container use the following curl command:",
+							visible: false
+						}],
+						["aps/TextArea", {
+							label: "Object Storage URL:",
+							id: "url",
+							cols: "80",
+							rows: "10",
+							disabled: false,
+							visible: false
+						}]
+					]], //end of container 1
+					["aps/Container", {cols:0, title:"Objects in the Selected Container"},[
+						["aps/Grid",{
+							id:"gridObjects",
+								store:  cObjectList,
+								columns: [
+									{ field: "name", name: "Name" },
+									{ field: "bytes", name: "Size"},
+									{ field: "content_type", name: "Type"},
+									{ field: "last_modified", name: "Last Modified"}
+								]},[
+									/*["aps/Toolbar", [
+													["aps/ToolbarButton", { id: "deleteObject", iconName: "./images/delete.png", label: _('Delete Object'), requireItems: true }]
+									]]*/
+							]]
+						]]//end container storage url
+				]]//end of main container
+		]]).then(function(){
+			var grid = registry.byId("gridContainers"),
+			gridObjects = registry.byId("gridObjects");
+
+			//delete the Container
+			registry.byId("deleteContainer").on("click", function() {
+				var page = registry.byId("page"),
+				messages = page.get("messageList"),
+				self = this;
+				var url1 = "/aps/2/resources/" + aps.context.vars.enduser.aps.id + "/deleteContainer";
+				xhr(url1, {	method: "POST",
+					data: JSON.stringify({"aps":{"id": curContainer}})
+				}).then(function(res){
+					messages.removeAll();
+					messages.addChild(new Message({ description: res, type: "info" }));
+					self.cancel();
+					registry.byId("gridContainers").refresh();
+					while (cObjects.length) { cObjects.pop(); }
+					registry.byId("gridObjects").refresh();
+					registry.byId("url").set('value',"");
+					}); //end then
+				});
+
+			//action behind the add Create Container button
+			registry.byId("createContainer").on("click", function(){
+				aps.apsc.gotoView("storagecontainer.new1");
+			});
+
+			//handle user selection of the first grid's table row so we can populate the 
+			//second table appropriately
+			grid.get("selectionArray").watchElements(function(){
+				curContainer = this;
+				registry.byId("url").set('value',"");
+				var url1 = "/aps/2/resources/" + aps.context.vars.enduser.aps.id+ "/getObjects";
+				xhr(url1, {	method: "POST",
+					data: JSON.stringify({"aps":{"id": curContainer}})
+				}).then(function(res){
+					var x = JSON.parse(String(res));
+					while (cObjects.length){ cObjects.pop();}
+					gridObjects.refresh();
+					if(x !== ""){
+						var y = x.objects;
+						// iterate the result array and add to the array backing the memory used by the sel widget
+						if(y !== "undefined"){
+							for(var t=0;t<y.length;t++){
+								cObjects.push(y[t]);
+								gridObjects.refresh();
+							}
+						}
+					}
+				});
+				
+				//get the curl stuff
+				url1 = "/aps/2/resources/" + aps.context.vars.enduser.aps.id+ "/getUploadCommand";
+				xhr(url1, {	method: "POST", data: JSON.stringify(
+						{"aps":{"id": curContainer}}
+						)
+				}).then(function(res){
+					registry.byId("url").set("value", res.split(': ').join(':'));
+					registry.byId("url").set("visible",true);
+					registry.byId("urlTxt").set("visible", true);
+				});
+			});
+		});
+	});
+</script>
+</head>
+<body>
+</body>
+</html>

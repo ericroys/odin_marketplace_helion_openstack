@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<script src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+	<script>
+		// On this View we will move using as base the tenant, for that we connect to it's type
+		require([
+			"aps/load",
+			"dojo/when",
+			"dijit/registry",
+			"aps/Store",
+			"aps/Message",
+			"dojox/mvc/getStateful",
+			"dojox/mvc/at",
+			"aps/ResourceStore",
+			"aps/xhr",
+			"dijit/registry",
+			"dojo/promise/all",
+			"aps/ready!"
+		], function (load, when, reg, Store, Message, getStateful, at, ResourceStore, xhr, registry, all) {
+				// We shall prepare the Store
+				var store = new Store({
+					apsType: "http://hp.com/heliontenant/3.0",
+					target: "/aps/2/resources"
+				});
+			
+				// We init some elements that we will use later
+				var model = {},
+					modelProto;
+
+				// we will need later to list the users relative to the tenant, we define an store for this
+				var store3 = new Store({
+					apsType:	"http://hp.com/users/1.0",
+					target:		"/aps/2/resources/" + aps.context.vars.tenant.aps.id + "/users",
+					idProperty: "aps.id"
+				});
+
+				//when(store3.query()).then(function (res){
+				when(store.get(aps.context.vars.tenant.aps.id)).then(function (res){
+					modelProto = res;
+					model = getStateful(modelProto);
+				
+				load(["aps/PageContainer", { id: "page" }, [
+						["aps/Grid", {
+							id: "grid",
+							store: store3,
+							selectionMode: 'multiple',
+							apsResourceViewId: "users.view-edit",
+							columns: [
+								{ field: 'helionusername', name: _('User'), type: 'resourceName' },
+								{ field: 'userstatus', name: _('Status'), type: 'resourceName' },
+								{ field: 'quota', name: _('Assigned Quota(GB)'), type: 'resourceName' }
+							]
+						}, [
+							["aps/Toolbar", [
+								["aps/ToolbarButton", { id: "newuser", iconName: "./images/add.png", label: _('Add Existing User') }],
+								["aps/ToolbarButton", { id: "deleteuser", iconName: "./images/delete.png", label: _('Delete'), requireItems: true }],
+								["aps/ToolbarButton", { id: "suspenduser", iconName: "./images/pause.png", label: _('Suspend'), requireItems: true }],
+								["aps/ToolbarButton", { id: "activateuser", iconName: "./images/resume.png", label: _('Enable'), requireItems: true }]
+							]]
+						]]
+					]]);
+			}).then(function(){
+
+				// We initialize page, core reason is that we will like to interact with the messages area
+				var page = registry.byId("page"),
+					messages = page.get("messageList"),
+					grid = registry.byId("grid");
+
+
+				registry.byId("deleteuser").on("click", function() {
+					var sel = grid.get("selectionArray"),
+						count = 0,
+						self = this;
+					var store4 = new Store({
+						apsType:	"http://hp.com/users/1.0",
+						target:		"/aps/2/resources/" + model.aps.id + "/users",
+						idProperty: "aps.id"
+					});
+					for(var i=0; i<sel.length; i++){
+						when(store4.remove(sel[i]), function() {
+							sel.splice(i,1);
+							if(++count >= sel.length){
+								grid.refresh();
+								self.cancel();
+							}
+						}, function(err){
+							messages.removeAll();
+							messages.addChild(new Message({ description: err, type: "error" }));
+							if(++count >= sel.length){
+								grid.refresh();
+								self.cancel();
+							}
+						});
+					}
+				});
+
+				//disable the user
+				registry.byId("suspenduser").on("click", function() {
+					messages.removeAll();
+
+					var sel = grid.get("selectionArray"),
+						count = 0,
+						self = this;
+
+					for(var i=0; i<sel.length; i++){
+						var storeuser = new Store({
+							target: "/aps/2/resources/" + sel[i] + "/disableuser"
+						});
+						when(storeuser.add(), function(theoutput) {
+							messages.addChild(new Message({description: theoutput, type: "info"}));
+							if(++count >= sel.length){
+								grid.refresh();
+								self.cancel();
+							}
+						}, function(err){
+							messages.addChild(new Message({ description: err, type: "error"}));
+							if(++count >= sel.length){
+								grid.refresh();
+								self.cancel();
+							}
+						});
+					}
+				});
+
+				registry.byId("activateuser").on("click", function() {
+					messages.removeAll();
+
+					var sel = grid.get("selectionArray"),
+						count = 0,
+						self = this;
+
+					for(var i=0; i<sel.length; i++){
+						var storeuser = new Store({
+							target: "/aps/2/resources/" + sel[i] + "/enableuser"
+						});
+						when(storeuser.add(), function(theoutput) {
+							messages.addChild(new Message({description: theoutput, type: "info"}));
+							if(++count >= sel.length){
+								grid.refresh();
+								self.cancel();
+							}
+						}, function(err){
+							messages.addChild(new Message({ description: err, type: "error"}));
+							if(++count >= sel.length){
+								grid.refresh();
+								self.cancel();
+							}
+						});
+					}
+				});
+
+				registry.byId("newuser").on("click", function() {
+
+					var store1 = new Store({
+						target: "/aps/2/resources?implementing(http://aps-standard.org/types/core/service-user/1.0)"
+					});
+					
+					var hpuser = new Store({
+						target: "/aps/2/resources?implementing(http://hp.com/users/1.0)"
+					});
+
+					var self = this;
+					
+					//see if there are any users to add that haven't already been added
+					all([hpuser.query(), store1.query()]).then(function(res){
+					
+						var helionusers = res[0],
+							theusers = res[1];
+
+						if(helionusers.length == theusers.length){
+							
+							console.log("There are no available users to add. Please add a user from the Users tab.");
+	
+							messages.removeAll();
+							messages.addChild(new Message({description: _("There is no available existing users to attach to Helion Openstack, create user first from Users tab."), type:"warning"}));
+							self.cancel();
+						}else{
+							aps.apsc.gotoView("user.new-1");
+						}
+					});
+				});
+			});
+		});
+
+	</script>
+</head>
+<body>
+</body>

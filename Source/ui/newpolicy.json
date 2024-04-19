@@ -1,0 +1,13 @@
+{
+    "aps": {
+        "type": "http://hp.com/helionsecuritygroup/1.0"
+    },
+    "policyName": "",
+    "policyDescription": "",
+    "project": {
+        "aps": {
+            "link": "strong",
+            "id": ""
+        }
+    }
+}

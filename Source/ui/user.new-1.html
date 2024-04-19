@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script type="text/javascript" src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+<script type="text/javascript" src="/aps/2/ui/runtime/client/3rd-party/jquery/jquery.js"></script>
+<script>
+		require([
+			"aps/ResourceStore",
+			"aps/Memory",
+			"dojo/when",
+			"dijit/registry",
+			"aps/load",
+			"dojox/mvc/getStateful",
+			"dojox/mvc/getPlainValue",
+			"aps/WizardData",
+			"aps/Message",
+			"dojox/mvc/at",
+			"dojo/promise/all",
+			"aps/ready!"
+		], function (Store, Memory, when, registry, load, getStateful, getPlainValue, wizardData, Message, at, all) {
+			
+			// We define an store where we will put all the users that exists in our context
+			// note that these are not tenant aware
+			var store = new Store({
+				apsType:	"http://aps-standard.org/types/core/service-user/1.0",
+				target:		"/aps/2/resources"
+			});
+
+			//Get existing helion users regardless of tenant as we only want one user ever
+			var store2 = new Store({
+				apsType:	"http://hp.com/users/1.0",
+				target:		"/aps/2/resources/"
+				//get users regardless of tenant as we only want one user
+				// + aps.context.vars.tenant.aps.id + "/users"
+			});
+			
+
+			// Definition of the wizard steps
+			var wizards = [
+				{ text: _("Select User") },
+				{ text: _("Confirm Settings") }
+			];
+
+			// Definition of model to store the result of checking users that exists on account and users already provisioned on application
+			var userModel = getStateful({model:{aps:{id:""}, fullName: "", email: "", login: ""}}),
+				profilesModel = getStateful({model2:{aps:{id:""}, name: "", QUOTA:"" }});
+
+			// we are defining a memory to store the end users, this one will have a 'primary key' that will be the aps.id (the unique object identifier in the service bus), this has 2 benefits, a) We can refer to it later on this wizard in order to do the mapping between owncloud users and users (comming from PA) and it allows us to stablish the relations while linking from other sources.
+			var endUsers = new Memory({idProperty: "aps.id"});
+
+			// We must check for each user that comes from /core/users if has helion or not, in case of not we will store them on possiblenewuser memory for displaying the dropdown
+			load(["aps/PageContainer", { id: "pageContainer" }, [
+				["aps/WizardControl", { id: "wizard", steps: wizards }],
+				["aps/Container", { cols: 2, id: "contentcreation" }, [
+					["aps/Container", [
+						["aps/FieldSet", [
+							["aps/Select", { id: "username", name: 'User Select', store: endUsers, value: at(userModel.model.aps, 'id'), labelAttr: 'displayName', title: _('User') }]
+						]],
+						["aps/FieldSet", { title: _('User Info'), id: "userinfo" }, [
+							["aps/Output", { label: _('Name'), value: at(userModel.model, 'fullName') }],
+							["aps/Output", { label: _('Email'), value: at(userModel.model, 'email') }],
+							["aps/Output", { label: _('Login'), value: at(userModel.model, 'login') }]
+						]]
+					]]
+				]]
+			]]).then(function(){
+				//We create variables for the elements on the html part
+				var page = registry.byId("pageContainer"),
+					messages = page.get("messageList");
+					//select = registry.byId("username");
+
+				wizards[0].active = true;
+				
+
+				var firstUser;
+				all([store2.query(), store.query()]).then(function(res){
+					//Here we will check what users has already the service, the ones that has it, shall not be in the list
+					var helionusers = res[0],
+						theusers = res[1];
+
+					for (var i = 0; i < theusers.length; i++) {
+						var found = 0;
+						for (var j=0; j < helionusers.length; j++){
+							if(helionusers[j].helionusername==theusers[i].login){
+								//console.log("USER STUFF: " + helionusers[j].user)
+								found = 1;
+							}
+						};
+						if(found === 0){
+							if (!firstUser) firstUser = theusers[i];
+							endUsers.add(theusers[i]);
+						}
+					};
+
+					registry.byId("username").set("store", endUsers);
+					if (firstUser) {
+						userModel.set("model", firstUser);
+						function apsIdChanged(prop, oldVal, newVal) {
+							if (oldVal == newVal) return;
+									userModel.set("model", endUsers.get(newVal));
+							userModel.model.aps.watch("id", apsIdChanged);
+						}
+						userModel.model.aps.watch("id", apsIdChanged);
+					}
+					if(!firstUser){
+						registry.byId("contentcreation").set('visible',false);
+						registry.byId("wizard").set('visible',false);
+						messages.removeAll();
+						//should never see this because this should be caught before this page
+						//added as additional validation just in case
+						messages.addChild(new Message({description: _("There is no users to attach to Helion Openstack, create user first from Users tab"), type:"warning"}));
+						//aps.apsc.gotoView("users");
+					}
+				});
+			});
+
+			aps.app.onNext = function() {
+				wizardData.put({userModel: getPlainValue(userModel.model), profilesModel: getPlainValue(profilesModel.model2)});
+				aps.apsc.gotoView("user.new-2");
+			};
+			aps.app.onCancel = function() {
+				aps.apsc.gotoView("users");
+			};
+		});
+</script>
+</head>
+<body>
+</body>
+</html>

@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="/aps/2/ui/runtime/client/aps/aps.js"></script>
+    <script>
+      require([
+        "aps/Memory",
+        "dojo/when",
+        "dojo/promise/all",
+        "aps/ResourceStore",
+        "dijit/registry",
+        "aps/PageContainer",
+        "dojox/mvc/getStateful",
+        "aps/load",
+        "aps/Select",
+        "dojox/mvc/getPlainValue",
+        "aps/Message",
+        "aps/xhr",
+        "dojo/_base/array",
+        "./errorhandler.js",
+        "aps/ready!",
+      ], function (
+        Memory,
+        when,
+        all,
+        Store,
+        registry,
+        PageContainer,
+        getStateful,
+        load,
+        Select,
+        getPlainValue,
+        Message,
+        xhr,
+        arr,
+        errorhandler
+      ) {
+        //variable for current selected menu item (aps id of the user)
+        var curFlav = "";
+        //variable for current selected project (aps id of project)
+        var curProj = "";
+
+        var storeFlav = new Store({
+            apsType: "http://hp.com/flavor/1.0",
+            target:
+              "/aps/2/resources/" + aps.context.vars.tenant.aps.id + "/flavors",
+            idProperty: "aps.id",
+          }),
+          storeProj = new Store({
+            apsType: "http://hp.com/project/3.0",
+            target:
+              "/aps/2/resources/" +
+              aps.context.vars.tenant.aps.id +
+              "/projects",
+            idProperty: "aps.id",
+          });
+
+        //vars for the drop list of projects that can be associated to flavors
+        var selProjList = new Memory({
+          data: [{ aps: { id: "" }, projectName: "", description: "" }],
+          idProperty: "aps.id",
+        });
+
+        //vars for the second table store. They are populated under condition of selection of the first table
+        var pProjs = [];
+        var pProjList = new Memory({ data: pProjs, idProperty: "id" });
+
+        //get the list of projects(s) that can be associated to a flavor then get the list of flavors and load
+        //the page
+        when(
+          storeProj.query().forEach(function (data) {
+            selProjList.add({
+              aps: { id: data.aps.id },
+              projectName: data.projectName,
+              description: data.description,
+            });
+          })
+        ).then(function () {
+          //query for existing projects to display in the grid
+
+          //load the page
+          load([
+            "aps/PageContainer",
+            { id: "page" },
+            [
+              [
+                "aps/Grid",
+                {
+                  id: "grid",
+                  store: storeFlav,
+                  selectionMode: "single",
+                  columns: [
+                    { field: "flavorName", name: "Flavor" },
+                    { field: "ram", name: "Ram(MB)" },
+                    { field: "cpus", name: "CPUs" },
+                    { field: "rootdisk", name: "Root Disk(GB)" },
+                    { field: "ephemeraldisk", name: "Ephemeral Disk(GB)" },
+                    { field: "swapdisk", name: "Swap Disk(MB)" },
+                  ],
+                },
+                [
+                  [
+                    "aps/Toolbar",
+                    [
+                      [
+                        "aps/Container",
+                        { cols: 2 },
+                        [
+                          [
+                            "aps/Container",
+                            { title: "General" },
+                            [
+                              [
+                                "aps/ToolbarButton",
+                                {
+                                  id: "newFlavor",
+                                  iconName: "./images/add.png",
+                                  label: _("Add"),
+                                },
+                              ],
+                              [
+                                "aps/ToolbarButton",
+                                {
+                                  id: "deleteFlavor",
+                                  iconName: "./images/delete.png",
+                                  label: _("Delete"),
+                                },
+                              ],
+                            ],
+                          ],
+                          [
+                            "aps/Container",
+                            { title: "Project Access", cols: 2 },
+                            [
+                              [
+                                "aps/ToolbarButton",
+                                {
+                                  id: "addProject",
+                                  iconName: "./images/add.png",
+                                  label: _("Add Project"),
+                                  requireItems: true,
+                                },
+                              ],
+                              [
+                                "aps/Select",
+                                {
+                                  id: "selectProject",
+                                  labelAttr: "projectName",
+                                  store: selProjList,
+                                },
+                              ],
+                            ],
+                          ],
+                        ],
+                      ],
+                    ],
+                  ],
+                ],
+              ], //end of grid one
+              [
+                "aps/Container",
+                { id: "assoc", title: "Projects with access to the flavor" },
+                [
+                  [
+                    "aps/Grid",
+                    {
+                      selectionMode: "multiple",
+                      id: "gridProjects",
+                      store: pProjList,
+                      columns: [
+                        { field: "projectName", name: "Project" },
+                        { field: "description", name: "Description" },
+                      ],
+                    },
+                    [
+                      [
+                        "aps/Toolbar",
+                        [
+                          [
+                            "aps/ToolbarButton",
+                            {
+                              id: "deleteProject",
+                              iconName: "./images/delete.png",
+                              label: _("Remove Project(s)"),
+                              requireItems: true,
+                            },
+                          ],
+                        ],
+                      ],
+                    ],
+                  ],
+                ],
+              ],
+            ],
+          ]).then(function () {
+            var grid = registry.byId("grid"),
+              page = registry.byId("page"),
+              messages = page.get("messageList");
+            var gridy = registry.byId("gridProjects");
+
+            //register listener for selection field changes
+            registry.byId("selectProject").on("change", function () {
+              var e = registry.byId("selectProject");
+              curProj = e.value;
+              console.log("Project Selected:: " + e.value);
+            });
+
+            //delete the flavor
+            registry.byId("deleteFlavor").on("click", function () {
+              var self = this;
+              messages.removeAll();
+              //iterate and delet from the store
+              if (curFlav !== "") {
+                when(
+                  storeFlav.remove(curFlav),
+                  function () {
+                    grid.refresh();
+                    pProjs.splice(0, pProjs.length);
+                    gridy.refresh();
+                    self.cancel;
+                  },
+                  function (err) {
+                    errorhandler(err);
+                    grid.refresh();
+                    self.cancel();
+                  }
+                );
+              }
+              self.cancel();
+            });
+
+            //action behind the add flavor button
+            registry.byId("newFlavor").on("click", function () {
+              aps.apsc.gotoView("flavor.new");
+            });
+
+            //action behind the add project association button
+            registry.byId("addProject").on("click", function () {
+              var self = this;
+              messages.removeAll();
+              if (curProj !== "" && curFlav !== "") {
+                var url1 = "/aps/2/resources/" + curFlav + "/associateProject";
+                xhr(url1, {
+                  method: "POST",
+                  data: JSON.stringify({ project: curProj }),
+                })
+                  .then(function (res) {
+                    messages.addChild(
+                      new Message({ description: res, type: "info" })
+                    );
+                    var projList = new Store({
+                      target: "/aps/2/resources/" + curFlav + "/projects",
+                    });
+                    //clear the project users array prior to load/re-load
+                    pProjs.splice(0, pProjs.length);
+                    //get the list of users for the selected project and re-pop the array
+                    projList.query().forEach(function (data) {
+                      pProjs.push({
+                        id: data.aps.id,
+                        projectName: data.projectName,
+                        description: data.description,
+                      });
+                      //console.log("id: " + data.aps.id + " :: User-> " + data.helionusername);
+                      gridy.refresh();
+                      self.cancel();
+                    });
+                  })
+                  .otherwise(errorhandler);
+              } else {
+                messages.addChild(
+                  new Message({
+                    description: "Please select a flavor and a project!",
+                    type: "error",
+                  })
+                );
+                self.cancel();
+              }
+              return;
+            });
+
+            //action behind the remove project association
+            registry.byId("deleteProject").on("click", function () {
+              var count = 0,
+                self = this,
+                selProjs = gridy.get("selectionArray");
+              messages.removeAll();
+              if (curFlav !== "") {
+                arr.forEach(selProjs, function (sid) {
+                  var url1 = "/aps/2/resources/" + curFlav + "/unlinkProject";
+                  xhr(url1, {
+                    method: "POST",
+                    data: JSON.stringify({ project: sid }),
+                  }).then(
+                    function (res) {
+                      messages.addChild(
+                        new Message({ description: res, type: "info" })
+                      );
+                      self.cancel();
+                    },
+                    function (err) {
+                      errorhandler(err);
+                      if (++count >= selProjs.length) {
+                        grid.refresh();
+                        self.cancel();
+                      }
+                    }
+                  );
+                });
+
+                //clear existing associated proj array
+                pProjs.splice(0, pProjs.length);
+                var projList = new Store({
+                  target: "/aps/2/resources/" + curFlav + "/projects",
+                });
+                projList.query().forEach(function (data) {
+                  pProjs.push({
+                    id: data.aps.id,
+                    projectName: data.projectName,
+                    description: data.description,
+                  });
+                });
+
+                gridy.refresh();
+              }
+              return;
+            });
+
+            //handle user selection of the first grid's table row so we can populate the
+            //second table appropriately
+            grid.get("selectionArray").watchElements(function () {
+              curFlav = this;
+              console.log("CurFlav: " + curFlav);
+              if (curFlav !== "" && curFlav !== "none") {
+                //store to query projects for the associated project users
+                var projList = new Store({
+                  target: "/aps/2/resources/" + curFlav + "/projects",
+                });
+
+                //clear the project users array prior to load/re-load
+                pProjs.splice(0, pProjs.length);
+                gridy.refresh();
+
+                //get the list of users for the selected project and re-pop the array
+                projList.query().forEach(function (data) {
+                  pProjs.push({
+                    id: data.aps.id,
+                    projectName: data.projectName,
+                    description: data.description,
+                  });
+                  //console.log("id: " + data.aps.id + " :: User-> " + data.helionusername);
+                  gridy.refresh();
+                });
+              } //endif
+            });
+          });
+        });
+      });
+    </script>
+  </head>
+  <body></body>
+</html>
