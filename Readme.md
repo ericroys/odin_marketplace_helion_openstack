@@ -2,7 +2,7 @@
 
 ## APS Package for HP Helion OpenStack
 
-![alt text](/Source/images/odin.png "Odin Logo") <span style="display:inline-block; font-size: 34px; margin-left:12px; margin-right:12px;">+ </span>![alt text](/Source/images/Helion.png "HP Helion OpenStack Logo")
+![alt text](/Source/images/odin.png "Odin Logo") ![alt text](/Source/images/Helion.png "HP Helion OpenStack Logo")
 
 A deployable proto-type package for the Ingram Micro <a href="https://be.ingrammicro.eu/en/impartner/cloud/odin-service-platform-automation">Odin Service Automation</a> platform to deliver consumable services for HP Helion Openstack.
 
